@@ -71,24 +71,28 @@
     #endif
     #define DB_COLOR_PRINTLN(message, color) if (1) {DB_COLOR_PRINT(message, color); DB_PRINTLN();}
 
+    #ifdef ERROR_MINOR_MUL
+    #undef ERROR_MINOR_MUL
+    #endif
+    #define ERROR_MINOR_MUL(seq, color) \
+        if (1) {\
+            DB_PRINT_MUL((color)(F("An error occoured in file: "))(__FILE__)(F(" in line: "))(__LINE__)('\n')(F("\tError: ")) seq (RESET_COLOR)('\n')); \
+        }
+
     #ifdef ERROR_MINOR
     #undef ERROR_MINOR
     #endif
-    #define ERROR_MINOR(message, color)  if (1) {\
-                                DB_PRINT(color);\
-                                DB_PRINT(F("An error occoured in file: "));\
-                                DB_PRINT(__FILE__);\
-                                DB_PRINT(F(" in line: "));\
-                                DB_PRINTLN(__LINE__);\
-                                DB_PRINT(F("\tError: "));\
-                                DB_PRINTLN(message);\
-                                DB_PRINT(RESET_COLOR);\
-                            }
+    #define ERROR_MINOR(message, color) ERROR_MINOR_MUL((message), color)
     
     #ifdef ERROR
     #undef ERROR
     #endif
     #define ERROR(message) if (1) {ERROR_MINOR(message, SET_RED); while (1) {}}
+
+    #ifdef ERROR_MUL
+    #undef ERROR_MUL
+    #endif
+    #define ERROR_MUL(seq) if (1) {ERROR_MINOR_MUL(seq, SET_RED); while (1) {}}
     
     #ifdef LACK // line acknowledge
     #undef LACK
@@ -183,12 +187,12 @@
     #ifdef DB_PRINT_BIN
     #undef DB_PRINT_BIN
     #endif
-    #define DB_PRINT_BIN(value, b0, b1) ((void)0)
+    #define DB_PRINT_BIN(value, b0, b1) ((void)0);
     
     #ifdef DB_PRINTLN_BIN
     #undef DB_PRINTLN_BIN
     #endif
-    #define DB_PRINTLN(value, b0, b1) ((void)0)
+    #define DB_PRINTLN(value, b0, b1) ((void)0);
 
     #ifdef DB_COLOR_PRINT
     #undef DB_COLOR_PRINT
@@ -200,15 +204,25 @@
     #endif
     #define DB_COLOR_PRINTLN(message, color) ((void)0);
 
+    #ifdef ERROR_MINOR_MUL
+    #undef ERROR_MINOR_MUL
+    #endif
+    #define ERROR_MINOR_MUL(seq, color) ((void)0);
+
     #ifdef ERROR_MINOR
     #undef ERROR_MINOR
     #endif
-    #define ERROR_MINOR(message, color) ((void)0)
+    #define ERROR_MINOR(message, color) ((void)0);
 
     #ifdef ERROR
     #undef ERROR
     #endif
-    #define ERROR(message) ((void)0)
+    #define ERROR(message) ((void)0);
+
+    #ifdef ERROR_MUL
+    #undef ERROR_MUL
+    #endif
+    #define ERROR_MUL(seq) ((void)0);
 
     #ifdef LACK // line acknowledge
     #undef LACK
