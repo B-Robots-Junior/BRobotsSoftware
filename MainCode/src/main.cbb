@@ -1,0 +1,83 @@
+#include <Arduino.h>
+#include <debug.h>
+#include <errorHandling.h>
+#include <mainStates.h>
+#include <array.h>
+#include <encoders.h>
+
+int main() {
+    init();
+    sei();
+
+    BEGIN_DEBUG(9600);
+
+    // ----------------------------------------------------------------------------------------------------
+    // initialize all sensors:
+
+    initEncoders();
+    // TODO: initialize all sensors
+
+    // ----------------------------------------------------------------------------------------------------
+    // initialize all the needed data:
+
+    MainStates mainState = MainStates::DISCOVER;
+
+    while (true) 
+    {
+        // ----------------------------------------------------------------------------------------------------
+        // update all sensors:
+
+        // TODO: add sensor updates
+
+        // ----------------------------------------------------------------------------------------------------
+
+        switch (mainState)
+        {
+
+        // ----------------------------------------------------------------------------------------------------
+        // init state:
+        case MainStates::REINIT:
+
+            // TODO: re initialitze all the sensors as a fallback
+
+            break;
+
+        // ----------------------------------------------------------------------------------------------------
+        // init state:
+        case MainStates::DISCOVER:
+
+            // TODO: log the current tile with mapping
+
+            mainState = MainStates::GET_ACTIONS;
+
+            break;
+
+        // ----------------------------------------------------------------------------------------------------
+        // get actions:
+        case MainStates::GET_ACTIONS:
+
+            // TODO: get new actions
+            
+            mainState = MainStates::DRIVE;
+
+            break;
+
+        // ----------------------------------------------------------------------------------------------------
+        // drive:
+        case MainStates::DRIVE:
+
+            // TODO: drive the current action
+            
+            break;
+
+        // ----------------------------------------------------------------------------------------------------
+        // turn:
+        case MainStates::TURN:
+
+            // TODO: turn according to the current action
+            
+            break;
+
+        }
+    }
+}

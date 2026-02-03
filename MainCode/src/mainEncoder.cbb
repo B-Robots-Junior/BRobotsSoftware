@@ -1,0 +1,17 @@
+#include <Arduino.h>
+#include <debug.h>
+#include <encoders.h>
+
+int main() {
+    init();
+
+    BEGIN_DEBUG(9600);
+
+    initEncoders();
+
+    while (true)
+    {
+        DB_PRINTLN(getEncoderDeg());
+        delay(1000);
+    }
+}
