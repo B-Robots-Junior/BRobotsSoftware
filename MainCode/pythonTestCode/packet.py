@@ -27,12 +27,12 @@ def getPacket(ser) -> Packet:
     #if type not in PacketType._value2member_map_:
     #    print("Packet is not in PacketType enum!")
     #    return Packet(PacketType.INVALID, bytes())
-    amount, = struct.unpack("<b", ser.read())
+    amount, = struct.unpack("<h", ser.read(2))
     return Packet(PacketType(type), ser.read(amount))
 
 def sendPacket(ser, packet: Packet):
     ser.write(struct.pack("<b", packet.type.value))
-    ser.write(struct.pack("<b", len(packet.data)))
+    ser.write(struct.pack("<h", len(packet.data)))
     ser.write(packet.data)
 
 ser = serial.Serial("COM10", 115200)
@@ -54,6 +54,12 @@ while True:
         case PacketType.CAM_DETECT_SIDE:
             print("Wrong packet type should not recieve: CAM_DETECT_SIDE!")
         case PacketType.CAM_TOF_DATA:
-            fr, bk, =struct.unpack("<bb", packet.data)
+            fr, bk, = struct.unpack("<bb", packet.data)
             print(f"front: {fr}, back: {bk}")
             sendPacket(ser, Packet(PacketType.CAM_VICTIM_VALID, struct.pack("<b", 2)))
+        case PacketType.MAP_TILE:
+            x, y, z, data, = struct.unpack("<bbbb", packet.data)
+            print(f"Logged Tile: {x}, {y}, {z} with data: {data}!")
+        case PacketType.LOCATION:
+            x, y, z, rotation, = struct.unpack("<bbbb", packet.data)
+            print(f"Logged rotation: {x}, {y}, {z} with rotation {rotation}")

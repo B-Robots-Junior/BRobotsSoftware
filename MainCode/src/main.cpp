@@ -3,13 +3,18 @@
 #include <errorHandling.h>
 #include <mainStates.h>
 #include <array.h>
-#include <encoders.h>
+#include <Encoders/encoders.h>
+
+#include <config.h>
+
+#define USE_main true
+#if CAT(USE_, CURR_MAIN)
 
 int main() {
     init();
     sei();
 
-    BEGIN_DEBUG(9600);
+    BEGIN_DEBUG(BAUDE_RATE);
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
@@ -81,3 +86,5 @@ int main() {
         }
     }
 }
+
+#endif

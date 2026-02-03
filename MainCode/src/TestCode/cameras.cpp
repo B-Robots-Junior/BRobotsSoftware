@@ -1,60 +1,64 @@
 #include <Arduino.h>
-#include <raspiComms.h>
+#include <devices.h>
+#include <RaspiComms/raspiDebug.h>
+
+#define USE_camera true
+#if CAT(USE_, CURR_MAIN)
 
 int main() {
     init();
 
-    RaspiComms raspi(Serial);
-
-    //DB_PRINTLN(F("Start"));
-
     while (true)
     {
-        switch (raspi.update(100, 101, 102, 103)) {
+        delay(500);
+        Devices::comms.sendTile(10, 11, 12, 100);
+        Devices::comms.sendPos(10, 10, 10, 3);
+
+        switch (Devices::comms.update(100, 101, 102, 103)) {
         case RaspiEvent::CAMERA_INVALID:
-            raspi.debugLog(F("Invalid cam!"));
+            Devices::comms.debugLog(F("Invalid cam!"));
             break;
         case RaspiEvent::CAMERA_TRIGGERED_LEFT:
-            raspi.debugLog(F("Cam triggered left!"));
+            Devices::comms.debugLog(F("Cam triggered left!"));
             break;
         case RaspiEvent::CAMERA_TRIGGERED_RIGTH:
-            raspi.debugLog(F("Cam triggered right!"));
+            Devices::comms.debugLog(F("Cam triggered right!"));
             break;
         case RaspiEvent::DETECTED_OMEGA_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_OMEGA_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_PHI_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_PHI_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_PSI_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_PSI_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_0_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_0_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_1_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_1_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_2_LEFT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_2_RIGHT:
-            raspi.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("Detected!"));
             break;
         case RaspiEvent::NO_MORE_PACKETS:
             break;
@@ -63,3 +67,5 @@ int main() {
         }
     }
 }
+
+#endif

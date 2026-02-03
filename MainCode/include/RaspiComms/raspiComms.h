@@ -6,6 +6,8 @@
 
 #define RASPI_BAUDE_RATE 115200
 
+typedef uint16_t PacketSize;
+
 enum class PacketType : uint8_t {
     INVALID             = 0, // invalid packet type (placeholder)
     DEBUG_CONSOLE       = 1, // packet to send to console
@@ -21,13 +23,14 @@ enum class PacketType : uint8_t {
 class Packet {
 private:
     PacketType _type;
-    uint8_t _size;
+    PacketSize _size;
     uint8_t* _data = nullptr;
 
 public:
-    Packet(PacketType type, uint8_t size) : _type(type), _size(size), _data(new uint8_t[size]) {}
+    Packet(PacketType type, PacketSize size) : _type(type), _size(size), _data(new uint8_t[size]) {}
     Packet(const Packet& packet) : _type(packet._type), _size(packet._size), _data(new uint8_t[packet._size]) {
-        memcpy(_data, packet._data, _size);
+        if (_size > 0)
+            memcpy(_data, packet._data, _size);
     }
     Packet(Packet&& packet) : _type(packet._type), _size(packet._size), _data(packet._data) {
         packet._type = PacketType::INVALID;
@@ -36,11 +39,11 @@ public:
     }
     ~Packet() { delete[] _data; }
 
-    uint8_t size() const { return _size; }
+    PacketSize size() const { return _size; }
     PacketType type() const { return _type; }
     uint8_t* data() { return _data; }
 
-    uint8_t& operator[](uint8_t index) {
+    uint8_t& operator[](PacketSize index) {
         return _data[index];
     }
 
@@ -56,6 +59,7 @@ public:
     }
     Packet& operator=(Packet&& other) {
         if (this != &other) {
+            delete[] _data;
             _type = other._type;
             _size = other._size;
             _data = other._data;
@@ -100,8 +104,8 @@ private:
     HardwareSerial& _ser;
     CameraState _camState = CameraState::LOOKING;
 
-    void _sendPacket(PacketType use, uint8_t size, const uint8_t* data); // data must at least contain size bytes of data
-    void _sendPacket(PacketType use, uint8_t size, const __FlashStringHelper* data);
+    void _sendPacket(PacketType use, PacketSize size, const uint8_t* data); // data must at least contain size bytes of data
+    void _sendPacket(PacketType use, PacketSize size, const __FlashStringHelper* data);
     void _sendPacket(PacketType use, const __FlashStringHelper* data);
     Packet _recievePacket(uint32_t timeout);
     bool _checkPacket();

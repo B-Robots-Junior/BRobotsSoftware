@@ -39,7 +39,7 @@
 #include <WProgram.h>
 #endif
 
-#include <Adafruit_Soft_I2CDevice.h>
+#include <ColorSensor/Adafruit_Soft_I2CDevice.h>
 #include <SoftwareWire.h>
 
 #define TCS34725_ADDRESS (0x29)     /**< I2C address **/
