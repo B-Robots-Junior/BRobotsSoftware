@@ -32,6 +32,10 @@ public:
         return x == other.x && y == other.y;
     }
     template <typename C>
+    bool operator!=(Pos<C> other) {
+        return !operator==<C>(other);
+    }
+    template <typename C>
     bool operator>(Pos<C> other) {
         if (y > other.y) return true;
         else if (y < other.y) return false;
@@ -89,6 +93,10 @@ public:
     template <typename C>
     bool operator==(Pos3<C> other) {
         return x == other.x && y == other.y && z == other.z;
+    }
+    template <typename C>
+    bool operator!=(Pos3<C> other) {
+        return !operator==<C>(other);
     }
     template <typename C>
     bool operator>(Pos3<C> other) {

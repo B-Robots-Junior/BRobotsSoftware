@@ -4,6 +4,7 @@
 
 #define USE_camera true
 #if CAT(USE_, CURR_MAIN)
+#undef USE_camera
 
 int main() {
     init();

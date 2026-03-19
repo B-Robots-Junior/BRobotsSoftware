@@ -9,15 +9,18 @@
 typedef uint16_t PacketSize;
 
 enum class PacketType : uint8_t {
-    INVALID             = 0, // invalid packet type (placeholder)
-    DEBUG_CONSOLE       = 1, // packet to send to console
-    CAM_RESET           = 2, // send this and reason to restart cam communication if anything goes out of sequence or is invalid (must also reset state if this is recieved)
-    CAM_DETECT_SIDE     = 3, // initial packet that the camera sends to the mega containing one byte (first and only byte: rigth: 0, left: 1)
-    CAM_TOF_DATA        = 4, // send the respective side 2 bytes val front and val back
-    CAM_VICTIM_VALID    = 5, // get from the camera that the victim is valid, 1 byte type
-    CAM_VICTIM_INVALID  = 6, // get from the camera that the victim is invalid, no data
-    MAP_TILE            = 7, // send map tile data 3 bytes x, y, z position and 1 byte map data
-    LOCATION            = 8  // send 3 bytes x, y, z location and 1 byte rotation 0-3
+    INVALID             =  0, // invalid packet type (placeholder)
+    DEBUG_CONSOLE       =  1, // packet to send to console
+    CAM_RESET           =  2, // send this and reason to restart cam communication if anything goes out of sequence or is invalid (must also reset state if this is recieved)
+    CAM_DETECT_SIDE     =  3, // initial packet that the camera sends to the mega containing one byte (first and only byte: rigth: 0, left: 1)
+    CAM_TOF_DATA        =  4, // send the respective side 2 bytes val front and val back
+    CAM_VICTIM_VALID    =  5, // get from the camera that the victim is valid, 1 byte type
+    CAM_VICTIM_INVALID  =  6, // get from the camera that the victim is invalid, no data
+    MAP_TILE            =  7, // send map tile data 3 bytes x, y, z position and 1 byte map data
+    LOCATION            =  8, // send 3 bytes x, y, z location and 1 byte rotation 0-3
+    P_VAL               =  9, // sets the P value of the PID regulation (2 bytes float)
+    I_VAL               = 10, // sets the I value of the PID regulation (2 bytes float)
+    D_VAL               = 11, // sets the D value of the PID regulation (2 bytes float)
 };
 
 class Packet {

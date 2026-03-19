@@ -9,6 +9,7 @@
 
 #define USE_main true
 #if CAT(USE_, CURR_MAIN)
+#undef USE_main
 
 int main() {
     init();

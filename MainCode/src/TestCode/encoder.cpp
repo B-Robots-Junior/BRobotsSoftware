@@ -6,6 +6,7 @@
 
 #define USE_encoder true
 #if CAT(USE_, CURR_MAIN)
+#undef USE_encoder
 
 int main() {
     init();

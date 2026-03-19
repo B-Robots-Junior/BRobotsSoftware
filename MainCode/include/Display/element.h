@@ -78,29 +78,6 @@ public:
     const char name##ReadingName[] PROGMEM = readingName; \
     SensorReading<posX, posY, size> name(reinterpret_cast<const __FlashStringHelper*>(name##ReadingName), func);
 
-template <int8_t x, int8_t y, uint8_t size>
-class WallScetch : public TileElement<x, y, size> {
-public:
-    WallScetch(bool (*front)(), bool (*right)(), bool (*left)(), bool (*back)())
-        : TileElement<x, y, size>(), front(front), right(right), left(left), back(back) {}
-
-    bool (*front)();
-    bool (*right)();
-    bool (*left)();
-    bool (*back)();
-
-    void draw(Display* parentDisplay) override {
-        TileElement<x, y, size>::data.north = front();
-        TileElement<x, y, size>::data.east = right();
-        TileElement<x, y, size>::data.south = back();
-        TileElement<x, y, size>::data.west = left();
-        TileElement<x, y, size>::draw(parentDisplay);
-    }
-};
-
-#define GEN_WALL_SCETCH(name, posX, posY, size, front, right, left, back) \
-    WallScetch<posX, posY, size> name(front, right, left, back);
-
 template <uint8_t x, uint8_t y, uint8_t size, uint8_t pin>
 class BatteryCheck : public ConstText<x, y, size> {
 public:

@@ -1,4 +1,6 @@
 #include <RaspiComms/raspiComms.h>
+#include <EEPROM.h>
+#include <config.h>
 
 Packet invalidPacket(PacketType::INVALID, 0);
 
@@ -192,6 +194,36 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
     // --------------------------------------------------
     case PacketType::INVALID:
         return RaspiEvent::NONE;
+    
+    // --------------------------------------------------
+    case PacketType::P_VAL:
+        if (packet.size() != 2) {
+            _sendPacket(PacketType::DEBUG_CONSOLE, F("P val packet recieved wrong size!"));
+            return RaspiEvent::NONE;
+        }
+        EEPROM.write(P_OFFSET_EEPROM, packet.data()[0]);
+        EEPROM.write(P_OFFSET_EEPROM + 1, packet.data()[1]);
+        DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
+    
+    // --------------------------------------------------
+    case PacketType::I_VAL:
+        if (packet.size() != 2) {
+            _sendPacket(PacketType::DEBUG_CONSOLE, F("I val packet recieved wrong size!"));
+            return RaspiEvent::NONE;
+        }
+        EEPROM.write(I_OFFSET_EEPROM, packet.data()[0]);
+        EEPROM.write(I_OFFSET_EEPROM + 1, packet.data()[1]);
+        DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
+    
+    // --------------------------------------------------
+    case PacketType::D_VAL:
+        if (packet.size() != 2) {
+            _sendPacket(PacketType::DEBUG_CONSOLE, F("D val packet recieved wrong size!"));
+            return RaspiEvent::NONE;
+        }
+        EEPROM.write(D_OFFSET_EEPROM, packet.data()[0]);
+        EEPROM.write(D_OFFSET_EEPROM + 1, packet.data()[1]);
+        DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
     }
 
     return RaspiEvent::NONE;

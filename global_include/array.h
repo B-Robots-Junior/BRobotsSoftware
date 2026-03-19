@@ -1,5 +1,3 @@
-#pragma once
-
 #ifndef _ARRAY_H_
 #define _ARRAY_H_
 
@@ -61,8 +59,6 @@ public:
     }
     void pop_back() {
         if (_size == 0) {
-            if (!CONNECTED)
-                BEGIN_DEBUG(9600);
             ERROR("Can't decrease size of array below zero!");
             return;
         }
@@ -75,8 +71,6 @@ public:
     }
     void insert(unsigned int pos, const T& element) {
         if (pos >= _size) {
-            if (!CONNECTED)
-                BEGIN_DEBUG(9600);
             ERROR("Can't insert element outside of the bounds of the array!");
         }
         T* newData = (T*)malloc((_size + 1) * sizeof(T));
@@ -89,8 +83,6 @@ public:
     }
     void pop(unsigned int pos) {
         if (pos >= _size) {
-            if (!CONNECTED)
-                BEGIN_DEBUG(9600);
             ERROR("Can't remove an element outside of the bounds of the array!");
             return;
         }
@@ -105,16 +97,12 @@ public:
 
     T& operator[](unsigned int index) {
         if (index < 0 || index >= _size || _data == nullptr) {
-            if (!CONNECTED)
-                BEGIN_DEBUG(9600);
             ERROR("Index out of Range!");
         }
         return _data[index];
     }
     T operator[](unsigned int index) const {
         if (index < 0 || index >= _size || _data == nullptr) {
-            if (!CONNECTED)
-                BEGIN_DEBUG(9600);
             ERROR("Index out of Range!");
         }
         return _data[index];

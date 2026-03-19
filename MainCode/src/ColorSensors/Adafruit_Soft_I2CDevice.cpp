@@ -1,4 +1,4 @@
-#include <ColorSensor/Adafruit_Soft_I2CDevice.h>
+#include <ColorSensors/Adafruit_Soft_I2CDevice.h>
 
 //#define DEBUG_SERIAL Serial
 

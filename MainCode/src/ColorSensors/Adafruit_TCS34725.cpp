@@ -29,7 +29,7 @@
 #include <math.h>
 #include <stdlib.h>
 
-#include <ColorSensor/Adafruit_TCS34725.h>
+#include <ColorSensors/Adafruit_TCS34725.h>
 
 /*!
  *  @brief  Implements missing powf function
