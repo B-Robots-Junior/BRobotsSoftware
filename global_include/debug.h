@@ -9,6 +9,26 @@
 #define PRIM_CAT(a, b) a##b
 #define CAT(a, b) PRIM_CAT(a, b)
 
+#if DEBUG_MODE
+#define DEBUG_ONLY(x) x
+#define IF_DEBUG(yes, no) yes
+#define DEBUG_MACRO(x) x
+#else
+#define DEBUG_ONLY(x)
+#define IF_DEBUG(yes, no) no
+#define DEBUG_MACRO(x) ((void)0)
+#endif
+
+#if DELAYS_ENABLED
+#define DELAY_ONLY(x) x
+#define IF_DELAY(yes, no) yes
+#define DELAY_MACRO(x) x
+#else
+#define DELAY_ONLY(x)
+#define IF_DELAY(yes, no) no
+#define DELAY_MACRO(x) ((void)0)
+#endif
+
 #define DB_PRINT_MUL_EXP_1(val) DB_PRINT(val); DB_PRINT_MUL_EXP_2
 #define DB_PRINT_MUL_EXP_1_END
 #define DB_PRINT_MUL_EXP_2(val) DB_PRINT(val); DB_PRINT_MUL_EXP_1
@@ -18,7 +38,7 @@
 // DB_PRINT_MUL(("Hello, ")(foo)(" World!")('\n'))
 // would expand to:
 // DB_PRINT("Hello, "); DB_PRINT(foo); DB_PRINT(" World!"); DB_PRINT('\n');
-#define DB_PRINT_MUL(seq) if(1) {CAT(DB_PRINT_MUL_EXP_1 seq, _END)}
+#define DB_PRINT_MUL(seq) DEBUG_MACRO(do {CAT(DB_PRINT_MUL_EXP_1 seq, _END)} while(0))
 
 #define VOID_MACRO(...) ((void)0)
 
@@ -29,230 +49,68 @@
 #define IF_true(m1, m2, ...) m1(__VA_ARGS__)
 #define IF_false(m1, m2, ...) m2(__VA_ARGS__)
 
-#if DEBUG_MODE
+#define BEGIN_DEBUG(braud_rate) DEBUG_MACRO(Serial.begin(braud_rate))
 
-    #ifdef BEGIN_DEBUG
-    #undef BEGIN_DEBUG
-    #endif
-    #define BEGIN_DEBUG(braud_rate) Serial.begin(braud_rate)
-    
-    #ifdef CONNECTED
-    #undef CONNECTED
-    #endif
-    #define CONNECTED ((bool)Serial)
-    
-    #ifdef DB_PRINT
-    #undef DB_PRINT
-    #endif
-    #define DB_PRINT(message) Serial.print(message)
-    
-    #ifdef DB_PRINTLN
-    #undef DB_PRINTLN
-    #endif
-    #define DB_PRINTLN(message) Serial.println(message)
+#define CONNECTED IF_DEBUG(((bool)Serial), true)
 
-    #ifdef DB_PRINT_BIN
-    #undef DB_PRINT_BIN
-    #endif
-    #define DB_PRINT_BIN(value, b0, b1) for (int bit = b0; bit < (b1); bit++) { DB_PRINT(((value) >> bit) & 1); }
-    
-    #ifdef DB_PRINTLN_BIN
-    #undef DB_PRINTLN_BIN
-    #endif
-    #define DB_PRINTLN_BIN(value, b0, b1) if (1) { DB_PRINT_BIN(value, b0, b1); DB_PRINTLN(""); }
+#define DB_PRINT(message) DEBUG_MACRO(Serial.print(message))
 
-    #ifdef DB_COLOR_PRINT
-    #undef DB_COLOR_PRINT
-    #endif
-    #define DB_COLOR_PRINT(message, color) if (1) {DB_PRINT(color); DB_PRINT(message); DB_PRINT(RESET_COLOR);}
+#define DB_PRINTLN(message) DEBUG_MACRO(Serial.println(message))
 
-    #ifdef DB_COLOR_PRINTLN
-    #undef DB_COLOR_PRINTLN
-    #endif
-    #define DB_COLOR_PRINTLN(message, color) if (1) {DB_COLOR_PRINT(message, color); DB_PRINTLN();}
+#define DB_PRINT_BIN(value, b0, b1) DEBUG_MACRO(do { for (int bit = b0; bit < (b1); bit++) { DB_PRINT(((value) >> bit) & 1); } } while (0))
 
-    #ifdef ERROR_MINOR
-    #undef ERROR_MINOR
-    #endif
-    #define ERROR_MINOR(message, color)  if (1) {\
-                                DB_PRINT(color);\
-                                DB_PRINT(F("An error occoured in file: "));\
-                                DB_PRINT(__FILE__);\
-                                DB_PRINT(F(" in line: "));\
-                                DB_PRINTLN(__LINE__);\
-                                DB_PRINT(F("\tError: "));\
-                                DB_PRINTLN(message);\
-                                DB_PRINT(RESET_COLOR);\
-                            }
-    
-    #ifdef ERROR
-    #undef ERROR
-    #endif
-    #define ERROR(message) if (1) {ERROR_MINOR(message, SET_RED); while (1) {}}
-    
-    #ifdef LACK // line acknowledge
-    #undef LACK
-    #endif
-    #define LACK if (1) {DB_PRINT(__FILE__); DB_PRINT(F(": ")); DB_PRINT(__LINE__); DB_PRINTLN(F(" Reached!"));}
+#define DB_PRINTLN_BIN(value, b0, b1) DEBUG_MACRO(do { DB_PRINT_BIN(value, b0, b1); DB_PRINTLN(""); } while (0))
 
-    #ifdef RACK // ram acknowledge
-    #undef RACK
-    #endif
-    #define RACK DB_PRINT_MUL((F("Free Ram: "))(freeMemory())(F(" bytes at: "))(F(__FILE__))(F(": "))(__LINE__)('\n'))
+#define DB_COLOR_PRINT(message, color) DEBUG_MACRO(do { DB_PRINT(color); DB_PRINT(message); DB_PRINT(RESET_COLOR); } while (0))
 
-    #ifdef DELAY
-    #undef DELAY
-    #endif
-    #if DELAYS_ENABLED
-    #define DELAY(ms) delay(ms)
-    #else
-    #define DELAY(ms) ((void)0)
-    #endif
+#define DB_COLOR_PRINTLN(message, color) DEBUG_MACRO(do { DB_COLOR_PRINT(message, color); DB_PRINTLN(); } while (0))
 
-    #ifdef BREAK
-    #undef BREAK
-    #endif
-    #define BREAK \
-        if (1) {\
-            DB_PRINT(SET_BLUE);\
-            DB_PRINT(F("Breakpoint in file: "));\
-            DB_PRINT(F(__FILE__));\
-            DB_PRINT(F(" in line: "));\
-            DB_PRINT(__LINE__);\
-            DB_PRINTLN(F(" Triggered!"));\
-            DB_PRINT(RESET_COLOR);\
-            while (!Serial.available()) {}\
-            delay(100);\
-            while (Serial.available()) { Serial.read(); }\
-        }
+#define ERROR_MINOR(message, color)  DEBUG_MACRO(do {\
+                            DB_PRINT(color);\
+                            DB_PRINT(F("An error occoured in file: "));\
+                            DB_PRINT(__FILE__);\
+                            DB_PRINT(F(" in line: "));\
+                            DB_PRINTLN(__LINE__);\
+                            DB_PRINT(F("\tError: "));\
+                            DB_PRINTLN(message);\
+                            DB_PRINT(RESET_COLOR);\
+                        } while (0))
 
-    #ifdef BREAK_CON
-    #undef BREAK_CON
-    #endif
-    #define BREAK_CON(condition)\
-        if (condition) {\
-            DB_PRINT(SET_BLUE);\
-            DB_PRINT(F("Because of contition \'"));\
-            DB_PRINT(F(#condition));\
-            DB_PRINTLN(F("\' being true:"));\
-            BREAK\
-        }
+#define ERROR(message) DEBUG_MACRO(do {ERROR_MINOR(message, SET_RED); while (1) {}} while (0))
 
-    #ifdef VAR_PRINT
-    #undef VAR_PRINT
-    #endif
-    #define VAR_PRINT(var) if (1) {DB_PRINT(F(#var)); DB_PRINT(": "); DB_PRINT(var);}
+#define LACK DEBUG_MACRO(do {DB_PRINT(__FILE__); DB_PRINT(F(": ")); DB_PRINT(__LINE__); DB_PRINTLN(F(" Reached!"));} while (0))
 
-    #ifdef VAR_PRINTLN
-    #undef VAR_PRINTLN
-    #endif
-    #define VAR_PRINTLN(var) if (1) {VAR_PRINT(var); DB_PRINTLN();}
+#define RACK DEBUG_MACRO(DB_PRINT_MUL((F("Free Ram: "))(freeMemory())(F(" bytes at: "))(F(__FILE__))(F(": "))(__LINE__)('\n')))
 
-    #ifdef VAR_FUNC_PRINT
-    #undef VAR_FUNC_PRINT
-    #endif
-    #define VAR_FUNC_PRINT(var) if (1) {DB_PRINT(F(#var)); DB_PRINT(": "); (var).print();}
+#define DELAY(ms) DELAY_MACRO(delay(ms))
 
-    #ifdef VAR_FUNC_PRINTLN
-    #undef VAR_FUNC_PRINTLN
-    #endif
-    #define VAR_FUNC_PRINTLN(var) if (1) {VAR_FUNC_PRINT(var); DB_PRINTLN();}
+#define BREAK \
+    DEBUG_MACRO(do {\
+        DB_PRINT(SET_BLUE);\
+        DB_PRINT(F("Breakpoint in file: "));\
+        DB_PRINT(F(__FILE__));\
+        DB_PRINT(F(" in line: "));\
+        DB_PRINT(__LINE__);\
+        DB_PRINTLN(F(" Triggered!"));\
+        DB_PRINT(RESET_COLOR);\
+        while (!Serial.available()) {}\
+        delay(100);\
+        while (Serial.available()) { Serial.read(); }\
+    } while (0))
 
-#else
+#define BREAK_CON(condition)\
+    DEBUG_MACRO(do { if (condition) {\
+        DB_PRINT(SET_BLUE);\
+        DB_PRINT(F("Because of contition \'"));\
+        DB_PRINT(F(#condition));\
+        DB_PRINTLN(F("\' being true:"));\
+        BREAK\
+    }} while (0))
 
-    #ifdef BEGIN_DEBUG
-    #undef BEGIN_DEBUG
-    #endif
-    #define BEGIN_DEBUG(braud_rate) ((void)0)
-    
-    #ifdef CONNECTED
-    #undef CONNECTED
-    #endif
-    #define CONNECTED true
-    
-    #ifdef DB_PRINT
-    #undef DB_PRINT
-    #endif
-    #define DB_PRINT(message) ((void)0)
-    
-    #ifdef DB_PRINTLN
-    #undef DB_PRINTLN
-    #endif
-    #define DB_PRINTLN(message) ((void)0)
+#define VAR_PRINT(var) DEBUG_MACRO(do {DB_PRINT(F(#var)); DB_PRINT(": "); DB_PRINT(var);} while (0))
 
-    #ifdef DB_PRINT_BIN
-    #undef DB_PRINT_BIN
-    #endif
-    #define DB_PRINT_BIN(value, b0, b1) ((void)0)
-    
-    #ifdef DB_PRINTLN_BIN
-    #undef DB_PRINTLN_BIN
-    #endif
-    #define DB_PRINTLN(value, b0, b1) ((void)0)
+#define VAR_PRINTLN(var) DEBUG_MACRO(do {VAR_PRINT(var); DB_PRINTLN();} while (0))
 
-    #ifdef DB_COLOR_PRINT
-    #undef DB_COLOR_PRINT
-    #endif
-    #define DB_COLOR_PRINT(message, color) ((void)0);
+#define VAR_FUNC_PRINT(var) DEBUG_MACRO(do {DB_PRINT(F(#var)); DB_PRINT(": "); (var).print();} while (0))
 
-    #ifdef DB_COLOR_PRINTLN
-    #undef DB_COLOR_PRINTLN
-    #endif
-    #define DB_COLOR_PRINTLN(message, color) ((void)0);
-
-    #ifdef ERROR_MINOR
-    #undef ERROR_MINOR
-    #endif
-    #define ERROR_MINOR(message, color) ((void)0)
-
-    #ifdef ERROR
-    #undef ERROR
-    #endif
-    #define ERROR(message) ((void)0)
-
-    #ifdef LACK // line acknowledge
-    #undef LACK
-    #endif
-    #define LACK ((void)0);
-
-    #ifdef RACK // ram acknowledge
-    #undef RACK
-    #endif
-    #define RACK ((void)0);
-
-    #ifdef DELAY
-    #undef DELAY
-    #endif
-    #define DELAY(ms) ((void)0)
-
-    #ifdef BREAK
-    #undef BREAK
-    #endif
-    #define BREAK ((void)0);
-
-    #ifdef BREAK_CON
-    #undef BREAK_CON
-    #endif
-    #define BREAK_CON(condition) ((void)0);
-
-    #ifdef VAR_PRINT
-    #undef VAR_PRINT
-    #endif
-    #define VAR_PRINT(var) ((void)0);
-
-    #ifdef VAR_PRINTLN
-    #undef VAR_PRINTLN
-    #endif
-    #define VAR_PRINTLN(var) ((void)0);
-
-    #ifdef VAR_FUNC_PRINT
-    #undef VAR_FUNC_PRINT
-    #endif
-    #define VAR_FUNC_PRINT(var) ((void)0);
-
-    #ifdef VAR_FUNC_PRINTLN
-    #undef VAR_FUNC_PRINTLN
-    #endif
-    #define VAR_FUNC_PRINTLN(var) ((void)0);
-
-#endif
+#define VAR_FUNC_PRINTLN(var) DEBUG_MACRO(do {VAR_FUNC_PRINT(var); DB_PRINTLN();} while (0))

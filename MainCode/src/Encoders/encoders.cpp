@@ -4,10 +4,11 @@
 
 volatile uint32_t encoder_overflows = 0;
 
-void initEncoders() {
+bool initEncoders() {
     TCCR5A = 0x00;
     TCCR5B = 0b00000111;
     TIMSK5 = 0b00000001;
+    return true;
 }
 
 float getEncoderDeg() {

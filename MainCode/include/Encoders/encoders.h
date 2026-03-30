@@ -15,7 +15,7 @@
 
 extern volatile uint32_t encoder_overflows;
 
-void initEncoders();
+bool initEncoders();
 float getEncoderDeg();
 float getEncoderValueMM();
 uint64_t getEncoderValue();

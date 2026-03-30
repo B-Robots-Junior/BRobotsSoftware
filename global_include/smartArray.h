@@ -29,6 +29,7 @@ public:
     void pop_back();
     void insert(Size i, const T& element);
     void remove(Size i);
+    void remove_after(Size i); // removes all elements after the given index
 
     T& operator[](Size i); //! this will fail silently if not in DEBUG_MODE, where it will fail and block
     const T& operator[](Size i) const; //! this will fail silently if not in DEBUG_MODE, where it will fail and block
@@ -213,6 +214,21 @@ void SmartArray<T, Size, GrowPolicy>::remove(Size i) {
     for (Size j = i; j < _size; j++)
         _data[j] = move(_data[j + 1]);
     _data[_size] = T();
+}
+
+template <typename T, typename Size, typename GrowPolicy>
+void SmartArray<T, Size, GrowPolicy>::remove_after(Size i) {
+    if (PanikFlags::getInstance().outOfRam()) {
+        _free();
+        return;
+    }
+    if (i >= _size) {
+        ERROR_MINOR(F("Given index of remove_after is out of bounds!"), SET_RED);
+        return;
+    }
+    for (Size j = i; j < _size; j++)
+        _data[j] = T();
+    _size = i + 1;
 }
 
 // --------------------------------------------------

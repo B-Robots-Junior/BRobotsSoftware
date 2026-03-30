@@ -9,11 +9,13 @@
 
 enum MainStates {
     // main steps
+    GET_MOVE,       // get the next move
     REINIT,         // reinit all peripherals
-    DISCOVER,       // discover the current tile and add it to mapping
-    GET_ACTIONS,    // check if new actions list is needed and get the data from mapping
-    DRIVE,          // drive the current action
-    TURN            // turn according to the current action
+    START_TURN,     // start turn according to the current action
+    TURN,           // continue turning according to the current action
+    START_DRIVE,    // start drive according to the current action
+    DRIVE,          // continue driving according to the current action
+    COMPLETE_MOVE   // complete the current move
 };
 
 #endif

@@ -1,7 +1,7 @@
 #ifndef MAPPING_H
 #define MAPPING_H
 
-#include <map.h>
+#include <Mapping/map.h>
 #include <pos.h>
 #include <smartArray.h>
 

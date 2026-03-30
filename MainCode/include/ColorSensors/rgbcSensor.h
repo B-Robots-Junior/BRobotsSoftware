@@ -1,0 +1,136 @@
+#pragma once
+
+#ifndef _RGBC_SENSOR_H_
+#define _RGBC_SENSOR_H_
+
+#include <Arduino.h>
+#include <Wire.h>
+#include <ColorSensors/Adafruit_TCS34725.h>
+#include <debug.h>
+#include <Util/eepromUtil.h>
+#include <PinChangeInterrupt.h>
+#include <ColorSensors/colorType.h>
+#include <config.h>
+//#include <map.h>
+
+//#define RGBC_EEPROM_OFFSET 0 // the amount of bytes the EEPROM values are offset from the start
+//#define RGBC_EEPROM_SIZE (4 * 4 * sizeof(uint16_t))
+
+/*
+ * INDECIES EEPROM_OFFSET - EEPROM_OFFSET + 31 IN THE EEPROM ARE RESERVED FOR COLOR VALUES!
+ * the interrupt pin is pulled low when a black tile is detected, and stays low until clearInterrupt() is called
+ * The values at which the interrupt triggers are calculated when the value of a black tile is set
+ */
+
+#define RGBC_INVALID_TILE_ID -1 // invlid tile id (means there are sensor problems (try farbsensor.good()))
+#define RGBC_NORMAL_TILE_ID 0 // id of a normal tile
+#define RGBC_BLUE_TILE_ID 1 // id of a blue tile
+#define RGBC_BLACK_TILE_ID 2 // id of a black tile
+#define RGBC_CHECK_TILE_ID 3 // id of a checkpoint tile
+
+#define PERSISTENCE_FILTER_REGISTER 0x0C
+
+#define PERSISTENCE_EVERY 0b0000 //! Every RGBC cycle generates an interrupt (not recomended ALLWAYS TRIGGERS)
+#define PERSISTENCE_1 0b0001 // 1 clear channel value outside of threshold range
+#define PERSISTENCE_2 0b0010 // 2 clear channel consecutive values out of range
+#define PERSISTENCE_3 0b0011 // 3 clear channel consecutive values out of range
+#define PERSISTENCE_5 0b0100 // 5 clear channel consecutive values out of range
+#define PERSISTENCE_10 0b0101 // 10 clear channel consecutive values out of range
+#define PERSISTENCE_15 0b0110 // 15 clear channel consecutive values out of range
+#define PERSISTENCE_20 0b0111 // 20 clear channel consecutive values out of range
+#define PERSISTENCE_25 0b1000 // 25 clear channel consecutive values out of range
+#define PERSISTENCE_30 0b1001 // 30 clear channel consecutive values out of range
+#define PERSISTENCE_35 0b1010 // 35 clear channel consecutive values out of range
+#define PERSISTENCE_40 0b1011 // 40 clear channel consecutive values out of range
+#define PERSISTENCE_45 0b1100 // 45 clear channel consecutive values out of range
+#define PERSISTENCE_50 0b1101 // 50 clear channel consecutive values out of range
+#define PERSISTENCE_55 0b1110 // 55 clear channel consecutive values out of range
+#define PERSISTENCE_60 0b1111 // 60 clear channel consecutive values out of range
+
+#define CLEAR_TOLERANZ 1.1 // 0.5 // 1.1 // the toleranz of how many times lighter the tile can be as a black tile to get detected as one
+#define ADDATIVE_CLEAR_TOLERANZ 2
+
+// ----------------------------------------------------------------------------------------------------
+// RGBCSensor class
+// ----------------------------------------------------------------------------------------------------
+
+inline void noFunc() {} // placeholder empty function
+#define NO_DEF
+#define PRIM_CAT(a, b) a##b
+#define CAT(a, b) PRIM_CAT(a, b)
+
+//! this generates interrupt functions for the given rgbcSensor and void(void) fuctions that should be called on enter and exit
+//! if the functions aren't used just input noFunc
+// the output will be two functions: <rgbcSensor name>OnEnter() and <rgbcSensor name>OnExit() that you can use in the constructer of RGBCSensor
+#define GENERATE_ENTER_EXIT_INT_FUNCS(rgbcSensor, onEnterFunction, onExitFunction) \
+    void rgbcSensor##OnEnter() {onEnterFunction(); rgbcSensor.enterBlackTile();} \
+    void rgbcSensor##OnExit() {onExitFunction(); rgbcSensor.exitBlackTile();}
+
+#define DECLARE_INT_FUNCS(rgbcSensor) \
+    void rgbcSensor##OnEnter(); \
+    void rgbcSensor##OnExit();
+
+#define EXTERN_RGBC_SENSOR(rgbcSensorName) \
+    DECLARE_INT_FUNCS(rgbcSensorName) \
+    extern RGBCSensor rgbcSensorName;
+
+#define RGBC_EXTERN_true(rgbcSensorName)
+#define RGBC_EXTERN_false(rgbcSensorName) DECLARE_INT_FUNCS(rgbcSensorName)
+
+#define CREATE_RGBC_SENSOR(rgbcSensorName, intPin, onEnterFunction, onExitFunction, usedWithExtern) \
+    CAT(RGBC_EXTERN_, usedWithExtern)(rgbcSensorName) \
+    RGBCSensor rgbcSensorName (intPin, rgbcSensorName##OnEnter, rgbcSensorName##OnExit); \
+    GENERATE_ENTER_EXIT_INT_FUNCS(rgbcSensorName, onEnterFunction, onExitFunction)
+
+//extern const String rgbcColorToName[];
+//inline uint8_t rgbcColorToMapping(int rgbcColor) {
+//    if (rgbcColor == RGBC_CHECKPOINT_TILE_ID)
+//        return CHECKPOINT_TILE;
+//    return rgbcColor + 1;
+//}
+
+class RGBCSensor {
+private:
+    bool _connectionGood = false; // stores if the connection has succeeded (readable with good())
+    uint16_t _blackIntTriggerLevel = 0;
+    bool _onBlackTile = false; // used to set the interrupt range and pin
+    uint8_t _intPin; // interrupt pin
+
+    float _dist(int feldId, uint16_t r, uint16_t g, uint16_t b, uint16_t c);
+
+public:
+    //! the on enter and exit functions are the ones generated by the define
+    RGBCSensor(uint8_t intPin, void (*onEnterInt)(void), void (*onExitInt)(void)) 
+        : _intPin(intPin), onEnterInt(onEnterInt), onExitInt(onExitInt)
+    {
+        loadColorsFromEEPROM();
+    }
+
+    //Adafruit_TCS34725 sensor = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_101MS, TCS34725_GAIN_1X);
+    Adafruit_TCS34725 sensor = Adafruit_TCS34725(TCS34725_INTEGRATIONTIME_2_4MS, TCS34725_GAIN_1X);
+    void (*onEnterInt)(void); //! this function is the one generated by the define!
+    void (*onExitInt)(void); //! this function is the one generated by the define!
+
+    uint16_t colors[5][4]; // an array of RGBC colors where the first index is the tile ID
+    //! Add some default colors just in case
+
+    void setIntPin(uint8_t intPin);
+    uint8_t getIntPin() const {return _intPin;}
+
+    bool begin(SoftwareWire* theWire, uint8_t addr = (uint8_t)41U); // returns false when an error occoures
+    bool good(); // returns if the connection worked or not
+    void loadColorsFromEEPROM(); // reads the colors from the EEPROM
+    void saveColorsToEEPROM(); // stores the colors to the EEPROM
+    void loadColorFromEEPROM(ColorType color); // reads a singel tile color from the EEPROM
+    void saveColorToEEPROM(ColorType color); // stores a singel tile color to the EEPROM
+    void setColor(ColorType color); // sets the current reading to a tile color
+    ColorType getCurrentId(); // returns the tile id of the tile you are currently on 
+    void setPersistence(uint8_t persistence); // sets how often in a row the sensor has to read a black tile to trigger an interrupt
+    void clearInterrupt(); // after an interrupt is triggered this function has to be called so the pin resets to HIGH and it can be triggered again
+    void updateInterruptTriggerLevel(); // is mainly used internally, but should be used if you set the black tile value by hand and not through this class
+
+    void enterBlackTile(); // is used by the interrupt functions to trigger range changes
+    void exitBlackTile(); // is used by the interrupt functions to trigger range changes
+};
+
+#endif

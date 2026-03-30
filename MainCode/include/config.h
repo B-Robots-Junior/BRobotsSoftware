@@ -6,10 +6,15 @@
 
 #define BAUDE_RATE 115200
 
-#define CURR_MAIN drive
+#define CURR_MAIN main_func
 
-#define P_OFFSET_EEPROM 0
-#define I_OFFSET_EEPROM 2
-#define D_OFFSET_EEPROM 4
+// eeprom settings
+#define P_OFFSET_EEPROM 0 // 2 bytes float
+#define I_OFFSET_EEPROM 2 // 2 bytes float
+#define D_OFFSET_EEPROM 4 // 2 bytes float
+
+#define SPECTROMETER_OFFSET_EEPROM 6 // (12 channels uint16_t (24 bytes)) * 5 colors = 120 bytes
+#define RGBC_SENSOR_OFFSET_EEPROM 126 // (4 channels uint16_t (8 bytes)) * 5 colors = 40 bytes
+#define REF_SENSOR_OFFSET_EEPROM 166 // (1 channel uint16_t (2 bytes)) * 5 colors = 10 bytes
 
 #endif

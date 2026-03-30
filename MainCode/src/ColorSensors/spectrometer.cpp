@@ -1,26 +1,6 @@
 #include <ColorSensors/spectrometer.h>
 
 // ----------------------------------------------------------------------------------------------------
-// constants
-// ----------------------------------------------------------------------------------------------------
-
-const char* specIdToAbrv[] = {
-    "norm",
-    "blue",
-    "blck",
-    "chck",
-    "red"
-};
-
-const char* specIdToName[] = {
-    "normal",
-    "blue",
-    "black",
-    "checkpoint",
-    "red"
-};
-
-// ----------------------------------------------------------------------------------------------------
 // functions
 // ----------------------------------------------------------------------------------------------------
 
@@ -68,32 +48,32 @@ void Spectrometer::update() {
     _readingStartTime = millis();
 }
 
-void Spectrometer::saveColorToEEPROM(uint8_t colorId) {
-    if (colorId >= SPEC_NUM_IDS)
+void Spectrometer::saveColorToEEPROM(ColorType colorId) {
+    if (colorId <= ColorType::Invalid || colorId > ColorType::Red)
         return;
     for (uint8_t c = 0; c < 12; c++)
-        saveToEEPROM<uint16_t>(_eepromOffset + (colorId * 12 + c) * sizeof(uint16_t), colors[colorId][c]);
+        saveToEEPROM<uint16_t>(_eepromOffset + (static_cast<int8_t>(colorId) * 12 + c) * sizeof(uint16_t), colors[static_cast<int8_t>(colorId)][c]);
 }
 
-void Spectrometer::readColorFromEEPROM(uint8_t colorId) {
-    if (colorId >= SPEC_NUM_IDS)
+void Spectrometer::readColorFromEEPROM(ColorType colorId) {
+    if (colorId <= ColorType::Invalid || colorId > ColorType::Red)
         return;
     for (uint8_t c = 0; c < 12; c++)
-        colors[colorId][c] = readFromEEPROM<uint16_t>(_eepromOffset + (colorId * 12 + c) * sizeof(uint16_t));
+        colors[static_cast<int8_t>(colorId)][c] = readFromEEPROM<uint16_t>(_eepromOffset + (static_cast<int8_t>(colorId) * 12 + c) * sizeof(uint16_t));
 }
 
 void Spectrometer::saveColorsToEEPROM() {
-    for (uint8_t colorId = 0; colorId < SPEC_NUM_IDS; colorId++)
-        saveColorToEEPROM(colorId);
+    for (uint8_t colorId = 0; colorId < 5; colorId++)
+        saveColorToEEPROM(ColorType(colorId));
 }
 
 void Spectrometer::readColorsFromEEPROM() {
-    for (uint8_t colorId = 0; colorId < SPEC_NUM_IDS; colorId++)
-        readColorFromEEPROM(colorId);
+    for (uint8_t colorId = 0; colorId < 5; colorId++)
+        readColorFromEEPROM(ColorType(colorId));
 }
 
-void Spectrometer::setColorCurrent(uint8_t colorId) {
-    if (!_good || colorId >= SPEC_NUM_IDS)
+void Spectrometer::setColorCurrent(ColorType colorId) {
+    if (!_good || colorId <= ColorType::Invalid || colorId > ColorType::Red)
         return;
     
     uint32_t sum[12] = {0};
@@ -104,7 +84,7 @@ void Spectrometer::setColorCurrent(uint8_t colorId) {
         }
     }
     for (uint8_t c = 0; c < 12; c++) {
-        colors[colorId][c] = sum[c] / SPEC_NUM_SAMPLE_READINGS;
+        colors[static_cast<int8_t>(colorId)][c] = sum[c] / SPEC_NUM_SAMPLE_READINGS;
     }
     saveColorToEEPROM(colorId); // save the updated color
 
@@ -113,15 +93,20 @@ void Spectrometer::setColorCurrent(uint8_t colorId) {
     _readingStartTime = millis();
 }
 
-int8_t Spectrometer::getColorId() {
+ColorType Spectrometer::getColorId() {
     if (!_good)
-        return SPEC_INVALID_TILE_ID;
+        return ColorType::Invalid;
     
     if (!_newReading) {
         return _currentColorId;
     }
     // check if it is eigher a bright or a dark color
-    bool isLightColor = weightedCheck(currentReading[specCha::CLEAR_0], colors[SPEC_BLUE_TILE_ID][specCha::CLEAR_0], colors[SPEC_NORMAL_TILE_ID][specCha::CLEAR_0], DARK_BRIGHT_DIFF_WEIGHTS);
+    bool isLightColor = weightedCheck(
+        currentReading[specCha::CLEAR_0],
+        colors[static_cast<int8_t>(ColorType::Blue)][specCha::CLEAR_0],
+        colors[static_cast<int8_t>(ColorType::Normal)][specCha::CLEAR_0],
+        DARK_BRIGHT_DIFF_WEIGHTS
+    );
     if (isLightColor) {
         // through a bit of experementing the only seeable difference is how inconsistent the values of the checkpoit tiles are
         // so I'm just gonna calculate the error of the is value to the normal tile value and if that is over a threshold it is a checkpoint
@@ -133,14 +118,14 @@ int8_t Spectrometer::getColorId() {
         for (uint8_t c = 0; c < specCha::CLEAR; c++) {
             if (c == specCha::CLEAR_0 || c == specCha::NIR_0)
                 continue;
-            int32_t diff = (int32_t)currentReading[c] - (int32_t)colors[SPEC_NORMAL_TILE_ID][c];
+            int32_t diff = (int32_t)currentReading[c] - (int32_t)colors[static_cast<int8_t>(ColorType::Normal)][c];
             onlyBelow = onlyBelow && diff < 0;
             err += abs(diff);
         }
         if (err >= CHEC_ERROR_THRESHOLD && !onlyBelow)
-            _currentColorId = SPEC_CHECK_TILE_ID;
+            _currentColorId = ColorType::Checkpoint;
         else
-            _currentColorId = SPEC_NORMAL_TILE_ID;
+            _currentColorId = ColorType::Normal;
 
         // // the channels F3 an F5 are quite a bit higher on checkpoint tiles then they are on normal tiles
         // // so I'm taking a bit of a weighted toleranz, because normal tiles are more likely to be measured
@@ -163,42 +148,42 @@ int8_t Spectrometer::getColorId() {
         // the highest difference between black and blue is in the clear channel and F3 480nm / F2 445nm, becuase around 450nm is the main blue spectrum
         bool clearValid = weightedCheck(
             currentReading[specCha::CLEAR_0], 
-            colors[SPEC_BLACK_TILE_ID][specCha::CLEAR_0], 
-            colors[SPEC_BLUE_TILE_ID][specCha::CLEAR_0],
+            colors[static_cast<int8_t>(ColorType::Black)][specCha::CLEAR_0], 
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::CLEAR_0],
         BLACK_BLUE_DIFF_WEIGHTS);
         bool aboveF3 = weightedCheck(
             currentReading[specCha::F3_480nm], 
-            colors[SPEC_BLACK_TILE_ID][specCha::F3_480nm], 
-            colors[SPEC_BLUE_TILE_ID][specCha::F3_480nm],
+            colors[static_cast<int8_t>(ColorType::Black)][specCha::F3_480nm], 
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::F3_480nm],
         BLACK_BLUE_DIFF_WEIGHTS);
         bool aboveF2 = weightedCheck(
             currentReading[specCha::F2_445nm], 
-            colors[SPEC_BLACK_TILE_ID][specCha::F2_445nm], 
-            colors[SPEC_BLUE_TILE_ID][specCha::F2_445nm],
+            colors[static_cast<int8_t>(ColorType::Black)][specCha::F2_445nm], 
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::F2_445nm],
         BLACK_BLUE_DIFF_WEIGHTS);
 
         bool aboveF6 = weightedCheck(
             currentReading[specCha::F6_590nm],
-            colors[SPEC_BLUE_TILE_ID][specCha::F6_590nm],
-            colors[SPEC_RED_TILE_ID][specCha::F6_590nm],
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::F6_590nm],
+            colors[static_cast<int8_t>(ColorType::Red)][specCha::F6_590nm],
         BLUE_RED_DIFF_WEIGHTS);
         bool aboveF7 = weightedCheck(
             currentReading[specCha::F7_630nm],
-            colors[SPEC_BLUE_TILE_ID][specCha::F7_630nm],
-            colors[SPEC_RED_TILE_ID][specCha::F7_630nm],
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::F7_630nm],
+            colors[static_cast<int8_t>(ColorType::Red)][specCha::F7_630nm],
         BLUE_RED_DIFF_WEIGHTS);
         bool aboveF8 = weightedCheck(
             currentReading[specCha::F8_680nm],
-            colors[SPEC_BLUE_TILE_ID][specCha::F8_680nm],
-            colors[SPEC_RED_TILE_ID][specCha::F8_680nm],
+            colors[static_cast<int8_t>(ColorType::Blue)][specCha::F8_680nm],
+            colors[static_cast<int8_t>(ColorType::Red)][specCha::F8_680nm],
         BLUE_RED_DIFF_WEIGHTS);
 
         if (aboveF6 && aboveF7 && aboveF8)
-            _currentColorId = SPEC_RED_TILE_ID;
+            _currentColorId = ColorType::Red;
         else if (clearValid && (aboveF2 || aboveF3))
-            _currentColorId = SPEC_BLUE_TILE_ID;
+            _currentColorId = ColorType::Blue;
         else
-            _currentColorId = SPEC_BLACK_TILE_ID;
+            _currentColorId = ColorType::Black;
     }
 
     _newReading = false;

@@ -4,17 +4,10 @@
 #include <Adafruit_AS7341.h>
 #include <debug.h>
 #include <Util/eepromUtil.h>
+#include <config.h>
+#include <ColorSensors/colorType.h>
 
-#define SPEC_DEFAULT_EEPROM_OFFSET 32
 #define SPEC_DEFAULT_READING_COMPL_TIMEOUT 1000
-
-#define SPEC_NUM_IDS 5 // number of color id's
-#define SPEC_INVALID_TILE_ID -1 // invlid tile id (means there are sensor problems (try farbsensor.good()))
-#define SPEC_NORMAL_TILE_ID 0 // id of a normal tile
-#define SPEC_BLUE_TILE_ID 1 // id of a blue tile
-#define SPEC_BLACK_TILE_ID 2 // id of a black tile
-#define SPEC_CHECK_TILE_ID 3 // id of a checkpoint tile
-#define SPEC_RED_TILE_ID 4 // id of a red tile
 
 #define NORMAL_CHECK_DIFF_WEIGHTS 0.66 // this means the lower 66% of the range distance between normal and checkpoint tiles counts to normal
 #define DARK_BRIGHT_DIFF_WEIGHTS 0.5 // this means the clear channel has to reach over the avarige of blue and normal to count as bright
@@ -44,9 +37,6 @@ enum specCha {
     NIR,
 };
 
-extern const char* specIdToAbrv[];
-extern const char* specIdToName[];
-
 bool weightedCheck(uint16_t value, uint16_t lower, uint16_t upper, float weight); // true for above, false for below
 
 class Spectrometer {
@@ -56,13 +46,13 @@ private:
     uint64_t _readingStartTime = 0;
     uint32_t _readingComplTimeout = 0;
     bool _newReading = true;
-    int8_t _currentColorId = SPEC_INVALID_TILE_ID;
+    ColorType _currentColorId = ColorType::Invalid;
 
 public:
-    Spectrometer(uint32_t readingComplTimeout = SPEC_DEFAULT_READING_COMPL_TIMEOUT, uint32_t eepromOffset = SPEC_DEFAULT_EEPROM_OFFSET) 
+    Spectrometer(uint32_t readingComplTimeout = SPEC_DEFAULT_READING_COMPL_TIMEOUT, uint32_t eepromOffset = SPECTROMETER_OFFSET_EEPROM) 
         : _eepromOffset(eepromOffset), _readingComplTimeout(readingComplTimeout) { readColorsFromEEPROM(); }
 
-    uint16_t colors[SPEC_NUM_IDS][12];
+    uint16_t colors[5][12];
     uint16_t currentReading[12];
 
     Adafruit_AS7341 sensor;
@@ -72,13 +62,13 @@ public:
     bool begin(uint8_t i2c_addr = (uint8_t)57U, TwoWire *wire = &Wire, int32_t sensor_id = 0);
     void update();
 
-    void saveColorToEEPROM(uint8_t colorId);
-    void readColorFromEEPROM(uint8_t colorId);
+    void saveColorToEEPROM(ColorType colorId);
+    void readColorFromEEPROM(ColorType colorId);
     void saveColorsToEEPROM();
     void readColorsFromEEPROM();
-    void setColorCurrent(uint8_t colorId);
+    void setColorCurrent(ColorType colorId);
 
-    int8_t getColorId();
+    ColorType getColorId();
 };
 
 #endif

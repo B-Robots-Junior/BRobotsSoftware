@@ -1,4 +1,4 @@
-#include <mapping.h>
+#include <Mapping/mapping.h>
 #include <utility.h>
 
 const mapPos direcToVec[4] = {mapPos(0, -1), mapPos(1, 0), mapPos(0, 1), mapPos(-1, 0)};
