@@ -8,7 +8,7 @@
 #include <PosSensors/ToF.h>
 
 // TOF
-#define TOF_TIMEOUT_VALUE 2000
+#define TOF_TIMEOUT_VALUE 900
 
 #ifdef _POSIION_H
     //Adafruit_BNO055 bno = Adafruit_BNO055(55);
@@ -46,6 +46,8 @@ int getLBDistance();
 int getRFDistance();
 int getRBDistance();
 int getFrontTopDistance();
+int getFrontBottomLongDistance();
+int getFrontBottomShortDistance();
 float getFrontAngle();
 float getRightDistance();
 float getLeftDistance();

@@ -22,7 +22,8 @@ ShortToF TofRF(37, 0x33);    // was: XSHUT_pin6,Sensor6_newAddress
 ShortToF TofRB(35, 0x34);    // was: XSHUT_pin5,Sensor5_newAddress
 NewLongToF Back(39, 0x35);   // was: XSHUT_pin3,Sensor3_newAddress); // 34
 NewLongToF frontTop(41, 0x36);
-// LongToF frontBottom(); //! add this when pinout is given
+ShortToF frontBottomL(29, 0x37);
+NewLongToF frontBottomR(26, 0x38);
 
 GyroSensor gyro;
 
@@ -59,6 +60,14 @@ bool initTofs(void)
     INIT_TOF(frontTop);
     DB_PRINTLN(F("frontTop OK."));
 
+    DB_PRINTLN(F("Starte frontBottomL..."));
+    INIT_TOF(frontBottomL);
+    DB_PRINTLN(F("frontTop OK."));
+    
+    DB_PRINTLN(F("Starte frontBottomR..."));
+    INIT_TOF(frontBottomR);
+    DB_PRINTLN(F("frontTop OK."));
+
     DB_PRINTLN(F("Starte Back..."));
     INIT_TOF(Back);
     DB_PRINTLN(F("Back OK."));
@@ -74,6 +83,8 @@ void updateTofs(void)
     TofRB.read();
     Back.read();
     frontTop.read();
+    frontBottomL.read();
+    frontBottomR.read();
 }
 
 bool initgyro(void)
@@ -114,17 +125,17 @@ double calculateposition(void)
     double LeftFront = TofLF.read();
     double LeftBack = TofLB.read();
 
-    bool rightValid = RightFront >= 0 && RightFront < 255 && RightBack >= 0 && RightFront < 255;
-    bool leftValid = LeftFront >= 0 && LeftFront < 255 && LeftBack >= 0 && LeftFront < 255;
+    bool rightValid = RightFront >= 0 && RightFront < 255 && RightBack >= 0 && RightBack < 255;
+    bool leftValid = LeftFront >= 0 && LeftFront < 255 && LeftBack >= 0 && LeftBack < 255;
 
     double AngleRightRAD;  
     double AngleLeftRAD;
 
-    AngleRightRAD = atan((RightFront-RightBack)/135.0);
-    AngleLeftRAD = atan((LeftBack-LeftFront)/135.0);
+    AngleRightRAD = atan2((RightFront-RightBack), 135.0);
+    AngleLeftRAD = atan2((LeftBack-LeftFront), 135.0);
   
     double AngleRightGRD = (AngleRightRAD * (180.0/M_PI));
-    double AngleLeftGRD = (AngleLeftRAD * (180.0/M_PI) + 14.0);
+    double AngleLeftGRD = (AngleLeftRAD * (180.0/M_PI));
 
     double Angle = 0;
     if (!rightValid) {
@@ -177,8 +188,16 @@ int getFrontTopDistance() {
     return frontTop.read() + TOF_FRONT_TOP_ADJ;
 }
 
+int getFrontBottomLongDistance() {
+    return frontBottomR.read() + TOF_FRONT_BOTTOM_R_ADJ;
+}
+
+int getFrontBottomShortDistance() {
+    return frontBottomL.read() + TOF_FRONT_BOTTOM_L_ADJ;
+}
+
 float getFrontAngle() {
-    return atan2(FRONT_HEIGHT_DELTA_MM, getFrontTopDistance() - getFrontDistance()) * RAD_TO_DEG;
+    return atan2(FRONT_HEIGHT_DELTA_MM, getFrontTopDistance() - getFrontBottomLongDistance()) * RAD_TO_DEG;
 }
 
 float getRightDistance() {

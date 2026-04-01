@@ -15,6 +15,7 @@ void RefSensor::calibrate(ColorType type) {
         sum += read();
     uint16_t val = sum / REF_SENSOR_CALIB_AMOUNT;
     _calVals[static_cast<int8_t>(type)] = val;
+    saveColorToEEPROM(type);
 }
 
 uint16_t RefSensor::read() {

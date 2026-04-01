@@ -15,7 +15,10 @@ enum MainStates {
     TURN,           // continue turning according to the current action
     START_DRIVE,    // start drive according to the current action
     DRIVE,          // continue driving according to the current action
-    COMPLETE_MOVE   // complete the current move
+    COMPLETE_MOVE,  // complete the current move
+    BLACK_IR,       // when a black tile interrupt gets triggered
+    BLACK_DRIVE,    // the drive out of the black tile (der hat wohl kein ticket gekauft)
+    BLACK_TURN      // turn 180 deg after driving out of black tile
 };
 
 #endif

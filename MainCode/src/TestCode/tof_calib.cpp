@@ -5,9 +5,9 @@
 
 #include <config.h>
 
-#define USE_test true
+#define USE_tof_calib true
 #if CAT(USE_, CURR_MAIN)
-#undef USE_test
+#undef USE_tof_calib
 
 int main() {
     init();
@@ -20,11 +20,16 @@ int main() {
     if (!initgyro())
         ERROR("Gyro failed to init!");
 
-    while (1) {
-        gyro.update();
-
-        VAR_PRINTLN(ReadGyropitch());
+    uint64_t sum = 0;
+    for (int i = 0; i < 100; i++) {
+        updateTofs();
+        DB_PRINTLN(getBackDistance());
+        sum += getBackDistance();
+        delay(10);
     }
+    VAR_PRINTLN(sum / 100.0);
+
+    while (1) {}
 }
 
 #endif

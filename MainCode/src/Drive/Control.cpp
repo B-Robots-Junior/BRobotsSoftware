@@ -139,21 +139,34 @@ void Control::keepCenteredgyro(float angle, float speedMul) {
     _motors.setSpeeds(m1Speed, m2Speed, m3Speed, m4Speed);
 }
 
-
-
-int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDist, float target_angle, double targetEncoderDist, float speedMul) { 
-    double avrDist = getEncoderValueMM();
-    float incline = -gyro.getPitch();
+int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDist, float target_angle, int64_t& lastEncoderDist, int64_t& trueEncoderDist, int64_t targetEncoderDist, float speedMul, int wallStoppingDist) { 
+    float incline = wrap180(-gyro.getPitch());
     incline = wrap180(incline);
-
-    if (abs(incline) >= 12) 
+    
+    int64_t currEncoderDist = getEncoderValueMM();
+    if (abs(incline) >= 12) {
         _driveAlongFailed = true;
+        trueEncoderDist += (currEncoderDist - lastEncoderDist) / 1.20; // pythagoras shit
+    } else {
+        trueEncoderDist += (currEncoderDist - lastEncoderDist);
+    }
+    DB_PRINT_MUL((F("curr: "))((long)currEncoderDist)(F(" last: "))((long)lastEncoderDist)(F(" diff: "))((long)(currEncoderDist - lastEncoderDist))(F(" true: "))((int)trueEncoderDist)(F(" target: "))((long)targetEncoderDist)(" inc: ")(incline)('\n'));
+    lastEncoderDist = currEncoderDist;
 
     if (!_driveAlongFailed) {
         int frontDist = getFrontTopDistance();
         int backDist = getBackDistance();
         
         if (targetBackDist != -1 || targetFrontDist != -1) {
+            if (getFrontTopDistance() < wallStoppingDist && abs(incline) >= 12 && speedMul > 0) {
+                _motors.setSpeeds(0, 0, 0, 0);
+                _driveAlongFailed = false; 
+                _frontFailed = false;
+                _backFailed = false;
+                LACK;
+                return 0;
+            }
+
             bool frontValid = frontDist > 0 && frontDist < TOF_TIMEOUT_VALUE && targetFrontDist > 0 && targetFrontDist < TOF_TIMEOUT_VALUE;
             bool backValid = backDist > 0 && backDist < TOF_TIMEOUT_VALUE && targetBackDist > 0 && targetBackDist < TOF_TIMEOUT_VALUE;
             bool frontDistFinished = speedMul > 0 ? frontDist <= targetFrontDist : frontDist >= targetFrontDist;
@@ -162,20 +175,34 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
             _frontFailed = !frontValid || _frontFailed;
             _backFailed = !backValid || _backFailed;
 
-            if (((frontDistFinished && !_frontFailed) || (backDistFinished && !_backFailed))) {
-                _motors.setSpeeds(0, 0, 0, 0);
-                _driveAlongFailed = false; 
-                _frontFailed = false;
-                _backFailed = false;
-                return 0;
+            // prioritize the front dist, because that is used for tile alignment, because it can check for ramps
+            if (!_frontFailed) {
+                if (frontDistFinished && abs(incline) < 3.0) {
+                    _motors.setSpeeds(0, 0, 0, 0);
+                    _driveAlongFailed = false; 
+                    _frontFailed = false;
+                    _backFailed = false;
+                    LACK;
+                    return 0;
+                }
             }
-            else if (_frontFailed && _backFailed) {
+            else if (!_backFailed) { // then use the back dist, because it is a simple +300
+                if (backDistFinished && abs(incline) < 3.0) {
+                    _motors.setSpeeds(0, 0, 0, 0);
+                    _driveAlongFailed = false; 
+                    _frontFailed = false;
+                    _backFailed = false;
+                    LACK;
+                    return 0;
+                }
+            } else {
                 _driveAlongFailed = true;
                 if (targetEncoderDist == -1) {
                     _motors.setSpeeds(0, 0, 0, 0);
                     _driveAlongFailed = false; 
                     _frontFailed = false;
                     _backFailed = false;
+                    LACK;
                     return -1; 
                 }
             }
@@ -183,16 +210,33 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
     }
 
     if (_driveAlongFailed && targetEncoderDist != -1) {
-        if (((avrDist >= targetEncoderDist) && speedMul > 0) ||
-            ((avrDist <= targetEncoderDist) && speedMul < 0)) {
+        // if it is extremely obvious that you should stop in front of the next wall just drive with the front tof
+        if (abs(targetEncoderDist - trueEncoderDist) < 200 && abs(incline) < 12 && getFrontTopDistance() < 200 && speedMul > 0) {
+            if (getFrontTopDistance() <= wallStoppingDist) {
+                _motors.setSpeeds(0, 0, 0, 0);
+                _driveAlongFailed = false; 
+                _frontFailed = false;
+                _backFailed = false;
+                LACK;
+                return 0;
+            }
+        }
+        else if (trueEncoderDist >= targetEncoderDist) { // encoder values only increment and don't care about direction
             _motors.setSpeeds(0, 0, 0, 0);
             _driveAlongFailed = false; 
             _frontFailed = false;
             _backFailed = false;
+            LACK;
             return 0;
         }
     }
 
+    uncondDriveAlong(targetDist, target_angle, speedMul);
+
+    return 1;
+}
+
+void Control::uncondDriveAlong(float targetDist, float target_angle, float speedMul) {
     float rfDist = getRFDistance();
     float rbDist = getRBDistance();
     float lfDist = getLFDistance();
@@ -201,17 +245,15 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
     bool rightValid = rfDist < 255 && rfDist > 0 && rbDist < 255 && rbDist > 0 && abs(rfDist - rbDist) < 50;
     bool leftValid = lfDist < 255 && lfDist > 0 && lbDist < 255 && lbDist > 0 && abs(lfDist - lbDist) < 50; 
     
-    if (rightValid && leftValid) {
-        keepCentered(speedMul);
-    }
-    else if (rightValid || leftValid) {
+    //if (rightValid && leftValid) {
+    //    keepCentered(speedMul);
+    //}
+    if (rightValid || leftValid) {
         keepHeading(targetDist, speedMul);
     }
     else {
         keepCenteredgyro(target_angle, speedMul);
     }
-
-    return 1;
 }
 
 int Control::driveAlongEncoders(double targetEncoderVal, float targetDist, float targetAngle, float speedMul) {

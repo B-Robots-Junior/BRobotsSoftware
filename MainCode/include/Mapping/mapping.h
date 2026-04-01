@@ -40,8 +40,6 @@ class Mapper {
 private:
     volatile bool _panic = false;
 
-    FastArray<Action> _actions;
-
     SimpleArray<Move> _currMoves = SimpleArray<Move>(Move(0, 0));
     uint16_t _currMoveIndex = 1;
     Move _panicMove = Move(0, 0);
@@ -66,6 +64,9 @@ public:
     }
     Mapper(const Mapper& other) = delete;
     Mapper(Mapper&& other) = delete;
+
+    //! only public for debugging purposes
+    FastArray<Action> _actions; //! remove the steps away from start part (pointless)
 
     Map map;
     // 0, 0, 0 is the start pos

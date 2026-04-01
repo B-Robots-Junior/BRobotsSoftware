@@ -1,4 +1,5 @@
 #include <Encoders/encoders.h>
+#include <util/atomic.h>
 
 // T5 pin -> PL2 pin -> D47 pin
 
@@ -20,8 +21,19 @@ float getEncoderValueMM() {
 }
 
 uint64_t getEncoderValue() {
-    uint8_t hcnt = TCNT5H;
-    return (encoder_overflows << 16) | (hcnt << 8) | TCNT5L;
+    uint16_t tcnt;
+    uint32_t overflows;
+
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        tcnt = TCNT5;
+        overflows = encoder_overflows;
+
+        if ((TIFR5 & (1 << TOV5)) && (tcnt < 65535)) {
+            overflows++;
+        }
+    }
+
+    return ((uint64_t)overflows << 16) | tcnt;
 }
 
 ISR(TIMER5_OVF_vect) { // once the timer overflows increment the encoder_overflows counter

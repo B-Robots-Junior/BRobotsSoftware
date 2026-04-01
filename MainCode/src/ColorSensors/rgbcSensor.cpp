@@ -77,11 +77,19 @@ void RGBCSensor::setColor(ColorType color) {
         return;
     if (!_connectionGood)
         return;
-    
+
     sensor.getRawData(&colors[static_cast<int8_t>(color)][0],
                       &colors[static_cast<int8_t>(color)][1],
                       &colors[static_cast<int8_t>(color)][2],
                       &colors[static_cast<int8_t>(color)][3]);
+
+    DB_PRINT_MUL((F("r: "))(colors[static_cast<int8_t>(color)][0])
+                 (F(" g: "))(colors[static_cast<int8_t>(color)][1])
+                 (F(" b: "))(colors[static_cast<int8_t>(color)][2])
+                 (F(" c: "))(colors[static_cast<int8_t>(color)][3])('\n'));
+
+    saveColorToEEPROM(color);
+        
     if (color == ColorType::Black)
         updateInterruptTriggerLevel();
 }
@@ -124,7 +132,7 @@ void RGBCSensor::updateInterruptTriggerLevel() {
     if (!_connectionGood)
         return;
 
-    _blackIntTriggerLevel = (uint16_t)(colors[RGBC_BLACK_TILE_ID][3] * CLEAR_TOLERANZ + ADDATIVE_CLEAR_TOLERANZ);
+    _blackIntTriggerLevel = (uint16_t)(colors[static_cast<int8_t>(ColorType::Black)][3] * CLEAR_TOLERANZ + ADDATIVE_CLEAR_TOLERANZ);
     DB_PRINT(F("Set limit to: "));
     DB_PRINTLN(_blackIntTriggerLevel);
     if (_onBlackTile)

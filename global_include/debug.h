@@ -1,6 +1,8 @@
 // set this to true to get a debug output or false to not
-#define DEBUG_MODE true
+#define DEBUG_MODE false
+// these only matter when in debug mode
 #define DELAYS_ENABLED true
+#define BREAKS_ENABLED true
 
 #include <Arduino.h>
 #include <ansiColorCodes.h>
@@ -19,7 +21,7 @@
 #define DEBUG_MACRO(x) ((void)0)
 #endif
 
-#if DELAYS_ENABLED
+#if DELAYS_ENABLED && DEBUG_MODE
 #define DELAY_ONLY(x) x
 #define IF_DELAY(yes, no) yes
 #define DELAY_MACRO(x) x
@@ -27,6 +29,16 @@
 #define DELAY_ONLY(x)
 #define IF_DELAY(yes, no) no
 #define DELAY_MACRO(x) ((void)0)
+#endif
+
+#if BREAKS_ENABLED && DEBUG_MODE
+#define BREAK_ONLY(x) x
+#define IF_BREAK(yes, no) yes
+#define BREAK_MACRO(x) x
+#else
+#define BREAK_ONLY(x)
+#define IF_BREAK(yes, no) no
+#define BREAK_MACRO(x) ((void)0)
 #endif
 
 #define DB_PRINT_MUL_EXP_1(val) DB_PRINT(val); DB_PRINT_MUL_EXP_2
@@ -85,7 +97,7 @@
 #define DELAY(ms) DELAY_MACRO(delay(ms))
 
 #define BREAK \
-    DEBUG_MACRO(do {\
+    BREAK_MACRO(do {\
         DB_PRINT(SET_BLUE);\
         DB_PRINT(F("Breakpoint in file: "));\
         DB_PRINT(F(__FILE__));\
@@ -99,7 +111,7 @@
     } while (0))
 
 #define BREAK_CON(condition)\
-    DEBUG_MACRO(do { if (condition) {\
+    BREAK_MACRO(do { if (condition) {\
         DB_PRINT(SET_BLUE);\
         DB_PRINT(F("Because of contition \'"));\
         DB_PRINT(F(#condition));\

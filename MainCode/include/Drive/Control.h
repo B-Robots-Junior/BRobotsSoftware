@@ -8,7 +8,7 @@
 #include <PosSensors/position.h>
 #include <PosSensors/gyroSensor.h>
 #include <Encoders/encoders.h>
-
+#include <constants.h>
 
 #define TURN_KP 4.0
 #define TURN_KI 1.2
@@ -49,7 +49,8 @@ public:
     void keepHeading(float targetDistance, float speedMul);
     void keepCenteredgyro(float angle, float speedMul);
 
-    int driveAlong(int targetBackDist, int targetFrontDist, float targetDist, float target_angle, double targetEncoderDist, float speedMul);
+    int driveAlong(int targetBackDist, int targetFrontDist, float targetDist, float target_angle, int64_t& lastEncoderDist, int64_t& trueEncoderDist, int64_t targetEncoderDist, float speedMul, int wallStoppingDist = FRONT_WALL_DIST_MM);
+    void uncondDriveAlong(float targetDist, float target_angle, float speedMul); // drive along with no exit conditions
     int driveAlongEncoders(double targetEncoderVal, float targetDist, float targetAngle, float speedMul);
     
     int driveBezier(Pos<float> p0, Pos<float> p1, Pos<float> pa, int baseSpeed, int turnSpeed, uint32_t startTime, uint32_t duration);
