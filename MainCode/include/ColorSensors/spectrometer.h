@@ -61,6 +61,7 @@ public:
 
     bool begin(uint8_t i2c_addr = (uint8_t)57U, TwoWire *wire = &Wire, int32_t sensor_id = 0);
     void update();
+    void forceUpdate();
 
     void saveColorToEEPROM(ColorType colorId);
     void readColorFromEEPROM(ColorType colorId);

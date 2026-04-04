@@ -3,10 +3,13 @@
 
 #include <Arduino.h>
 #include <RaspiComms/raspiComms.h>
-//#include <Display/display.h>
+#include <Display/display.h>
 #include <ColorSensors/rgbcSensor.h>
 #include <ColorSensors/refSensor.h>
+#include <ColorSensors/spectrometer.h>
 #include <Drive/Control.h>
+#include <Adafruit_NeoPixel.h>
+#include <pins.h>
 
 void rgbcSensorOnEnter();
 void rgbcSensorOnExit();
@@ -17,8 +20,11 @@ public:
     static Control control;
     static RGBCSensor rgbcSensor;
     static RefSensor refSensor;
-    // static RaspiComms comms;
-    // static Display display; // currently not on there
+    static Spectrometer spec;
+    static Adafruit_NeoPixel ledsBottom;
+    static Adafruit_NeoPixel ledsTop;
+    static RaspiComms comms;
+    // static Display display;
 
     static bool init(); // init all devices
 };

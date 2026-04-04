@@ -20,11 +20,11 @@ void RefSensor::calibrate(ColorType type) {
 
 uint16_t RefSensor::read() {
     digitalWrite(_ledPin, LOW);
-    delayMicroseconds(100);
+    delay(100);
     uint16_t ambient = analogRead(_inputPin);
 
     digitalWrite(_ledPin, HIGH);
-    delayMicroseconds(100);
+    delay(100);
     uint16_t withLED = analogRead(_inputPin);
     digitalWrite(_ledPin, LOW);
 

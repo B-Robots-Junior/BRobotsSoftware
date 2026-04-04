@@ -18,7 +18,7 @@
 #define BUMPER_ADJ_DURATION 1000
 #define BUMPER_ADJ_SPEED 50
 #define BUMPER_ADJ_RADIUS 20
-#define BUMPER_FRONT_TIME_MUL 1.1
+#define BUMPER_FRONT_TIME_MUL 0.5
 
 // tof adjustment values:
 #define TOF_LF_ADJ 3
@@ -39,5 +39,7 @@
 #define FRONT_RAMP_THRESHOLD 45
 
 #define BLACK_TILE_TOL 75
+
+#define BLUE_TILE_STOPPING_DIST 50
 
 #endif

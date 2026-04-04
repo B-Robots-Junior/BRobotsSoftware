@@ -203,7 +203,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(P_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(P_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     
     // --------------------------------------------------
     case PacketType::I_VAL:
@@ -213,7 +213,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(I_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(I_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     
     // --------------------------------------------------
     case PacketType::D_VAL:
@@ -223,7 +223,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(D_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(D_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] || (packet.data()[1] << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     }
 
     return RaspiEvent::NONE;

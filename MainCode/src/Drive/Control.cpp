@@ -325,11 +325,11 @@ int Control::driveSCurve(int speed, uint16_t radius, uint32_t startTime, uint32_
         _motors.setSpeeds(0, 0, 0, 0);
         return 0;
     }
-    int timeDirec = ((int)(time >= (duration / BUMPER_FRONT_TIME_MUL) / 2.0)) * 2 - 1; 
+    int timeDirec = ((int)(time >= (duration / 2.0) * BUMPER_FRONT_TIME_MUL)) * 2 - 1; 
     
     int speedR = speed * ((radius + (ROBOT_WIDTH_MM / 2.0) * direc * timeDirec) / (float)radius);
     int speedL = speed * ((radius - (ROBOT_WIDTH_MM / 2.0) * direc * timeDirec) / (float)radius);
     
-    _motors.setSpeeds(-speedL, -speedR, -speedL, -speedR);
+    _motors.setSpeeds(-speedL, -speedL, -speedR, -speedR);
     return 1;
 }

@@ -6,7 +6,7 @@
 
 #define BAUDE_RATE 115200
 
-#define CURR_MAIN main_func
+#define CURR_MAIN camera
 
 // eeprom settings
 #define P_OFFSET_EEPROM 0 // 2 bytes float

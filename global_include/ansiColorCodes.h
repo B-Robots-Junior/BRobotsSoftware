@@ -48,3 +48,11 @@
 #define RESET_BLINK "\033[25m"
 #define RESET_REVERSED "\033[27m"
 #define RESET_HIDDEN "\033[28m"
+
+#define CLEAR_SCREEN "\033[2J"
+#define CLEAR_SCREEN_AND_HOME "\033[2J\033[H"
+#define RESET_TERMINAL "\033c"
+
+#define CURSOR_HOME "\033[H"
+#define CLEAR_LINE "\033[2K"
+#define CLEAR_LINE_FROM_CURSOR "\033[K"

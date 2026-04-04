@@ -26,40 +26,40 @@ int main() {
             Devices::comms.debugLog(F("Cam triggered right!"));
             break;
         case RaspiEvent::DETECTED_OMEGA_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_OMEGA_LEFT!"));
             break;
         case RaspiEvent::DETECTED_OMEGA_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_OMEGA_RIGHT!"));
             break;
         case RaspiEvent::DETECTED_PHI_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_PHI_LEFT!"));
             break;
         case RaspiEvent::DETECTED_PHI_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_PHI_RIGHT!"));
             break;
         case RaspiEvent::DETECTED_PSI_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_PSI_LEFT!"));
             break;
         case RaspiEvent::DETECTED_PSI_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_PSI_RIGHT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_0_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_0_LEFT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_0_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_0_RIGHT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_1_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_1_LEFT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_1_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_1_RIGHT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_2_LEFT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_2_LEFT!"));
             break;
         case RaspiEvent::DETECTED_RING_SUM_2_RIGHT:
-            Devices::comms.debugLog(F("Detected!"));
+            Devices::comms.debugLog(F("DETECTED_RING_SUM_2_RIGHT!"));
             break;
         case RaspiEvent::NO_MORE_PACKETS:
             break;

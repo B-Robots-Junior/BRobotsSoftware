@@ -226,7 +226,7 @@ void SmartArray<T, Size, GrowPolicy>::remove_after(Size i) {
         ERROR_MINOR(F("Given index of remove_after is out of bounds!"), SET_RED);
         return;
     }
-    for (Size j = i; j < _size; j++)
+    for (Size j = i + 1; j < _size; j++)
         _data[j] = T();
     _size = i + 1;
 }

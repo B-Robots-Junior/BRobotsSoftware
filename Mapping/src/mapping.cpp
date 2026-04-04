@@ -1,7 +1,7 @@
 #include <mapping.h>
 #include <utility.h>
 
-const mapPos direcToVec[4] = {mapPos(0, -1), mapPos(1, 0), mapPos(0, 1), mapPos(-1, 0)};
+const mapPos direcToVec[4] = {mapPos(0, -1, 0), mapPos(1, 0, 0), mapPos(0, 1, 0), mapPos(-1, 0, 0)};
 const uint8_t direcCheckOrder[4] = {0, 3, 1, 2}; // the order in which the next tile to drive on is checked
 const uint8_t direcCheckPriority[4] = {0, 2, 3, 1}; // index is the direction and the value is the priority (exactly the reverse of direcCheckOrder)
 
@@ -55,15 +55,65 @@ void Move::println() const {
 
 // actually used methods from outside:
 // --------------------------------------------------
-void Mapper::resetToLastCheckpoint() {
+void Mapper::resetToLastCheckpoint(bool fWall, bool rWall, bool lWall, bool bWall) {
     PANIC_RETURN_VOID();
 
-    // TODO: We probably want to delete the old data from the actions list when an error occours
+    VAR_PRINTLN(_lastCheckpointActionIndex);
 
-    stepsAwayFromStart = _actions[_lastCheckpointActionIndex].stepsAway;
-    pos = _actions[_lastCheckpointActionIndex].pos;
+    // I know this is a very slow algorithm to dediscover tiles, but it works and we have time
+    for (uint16_t i = _lastCheckpointActionIndex + 1; i < _actions.size(); i++) {
+        bool skip = false;
+        for (uint16_t j = 0; j <= _lastCheckpointActionIndex; j++) {
+            if (_actions[i] == _actions[j]) {
+                skip = true;
+                break;
+            }
+        }
+        if (skip)
+            continue;
+        // TODO: dediscover tile here and update undiscoverd adj tiles bit
+        DB_PRINT_MUL((F("Dediscovering (x: "))(_actions[i].x)(F(", y: "))(_actions[i].y)(F(", z: "))(_actions[i].z)(F(")\n")));
+        uint8_t data = map.get(_actions[i]);
+        if (_GET_TYPE(data) == RAMP_TILE) {
+            mapPos upPos = _actions[i] + (_GET_UP(data) ? mapPos(0, 0, 1) : mapPos(0, 0, -1)); 
+            map.setType(upPos, UNDISCOVERED_TILE);
+            DB_PRINT_MUL((F("Dediscovering (x: "))(upPos.x)(F(", y: "))(upPos.y)(F(", z: "))(upPos.z)(F(")\n")));
+            map.setType(_actions[i], UNDISCOVERED_TILE);
+            // update adjacent tiles for neighbours
+            _updateAdjTiles(_actions[i] + direcToVec[_GET_DIR(data)] + (_GET_UP(data) ? mapPos(0, 0, 1) : mapPos(0, 0, -1)));
+            _updateAdjTiles(_actions[i] + direcToVec[(_GET_DIR(data) + 2) % 4]);
+            PANIC_RETURN_VOID();
+            continue;
+        }
+        if (_GET_TYPE(data) == BLACK_TILE) { // we don't have to undiscover black tiles, in fact its better if we don't
+            continue;
+        }
+        map.setType(_actions[i], UNDISCOVERED_TILE);
+        for (uint8_t dir = 0; dir < 4; dir++) {
+            if ((data >> dir) & 1) // theres a wall here so we can skip
+                continue;
+            DB_PRINT_MUL((F("   updating tile in direc: "))(dir)(F(" at: ")));
+            (_actions[i] + direcToVec[dir]).println();
+            _updateAdjTiles(_actions[i] + direcToVec[dir]);
+            PANIC_RETURN_VOID();
+        }
+    }
+
+    pos = _actions[_lastCheckpointActionIndex];
     _actions.remove_after(_lastCheckpointActionIndex); // removes all actions after _lastCheckpointActionIndex
     rotation = 0; //! Assumption that when the robot resets it is turned in the starting direction
+
+    // check if the rotation matches, if not go into panic mode (this is so we can force a panic mode by placing it incorrectly)
+    uint8_t data = map.get(pos);
+    if (_GET_TYPE(data) != CHECKPOINT_TILE) {
+        panicMode();
+        return;
+    }
+    if (fWall != _GET_NORTH(data)) { panicMode(); return; }
+    if (rWall != _GET_EAST(data)) { panicMode(); return; }
+    if (bWall != _GET_SOUTH(data)) { panicMode(); return; }
+    if (lWall != _GET_WEST(data)) { panicMode(); return; }
+
     _currMoves = getNextMove();
     _currMoveIndex = 0;
 }
@@ -161,7 +211,7 @@ void Mapper::panicMode() {
     PANIC_RETURN_VOID();
     _panic = true;
     map = Map(); // delete map
-    _actions = FastArray<Action>(); // delete actions
+    _actions = FastArray<mapPos>(); // delete actions
     allreadySeenVictims = SimpleArray<mapPos>(); // delete tracked victims
     DB_COLOR_PRINTLN(F("MAPPER ENTERED PANIC MODE, ERROR OCCOURED!"), SET_RED);
 }
@@ -171,6 +221,7 @@ uint64_t Mapper::currentDynamicRamUsage() {
     PANIC_RETURN_DEFAULT(0);
     uint64_t sum = map.dynamicMemorySize();
     sum += allreadySeenVictims.size() * sizeof(mapPos);
+    sum += _actions.dataSize() * sizeof(mapPos);
     return sum;
 }
 
@@ -241,16 +292,19 @@ void Mapper::drive(bool forward) {
 
     // this checkpoint case is covered here and not in discover, because pos and _actions should only be modified here and discover may be run anywhere
     // this is here incase that the current tile is discovered after driven onto which is not covered by the case below
-    if (map.getType(pos) == CHECKPOINT_TILE && _actions[_actions.size() - 1].pos == pos)
+    if (map.getType(pos) == CHECKPOINT_TILE && _actions[_actions.size() - 1] == pos) {
         _lastCheckpointActionIndex = _actions.size() - 1;
+        VAR_PRINTLN(_lastCheckpointActionIndex);
+    }
 
     pos = _getDriveInDirec(pos, (rotation + !forward * 2) % 4); // if not forward it shoud take the opposite direction
-    stepsAwayFromStart++;
 
     // this checks if where driving onto a checkpoint tile
-    if (map.getType(pos) == CHECKPOINT_TILE)
+    if (map.getType(pos) == CHECKPOINT_TILE) {
         _lastCheckpointActionIndex = _actions.size();
-    _actions.push_back(Action(pos, stepsAwayFromStart));
+        VAR_PRINTLN(_lastCheckpointActionIndex);
+    }
+    _actions.push_back(pos);
 
     if (PanikFlags::getInstance().outOfRam())
         panicMode();
@@ -327,23 +381,25 @@ SimpleArray<Move> Mapper::getNextMove() {
     
     // this is a bit of a nitpick, but it would be more efficient to get all occourences of the current tile your on
     // and then search the neighbouring indexes or to be a bit more efficient, but more comliated use a Breadth-First Search
+    VAR_PRINTLN(_actions.size());
     for (int32_t i = (int32_t)_actions.size() - 1; i >= 0; i--) {
-        Action currAction = _actions[i];
-        if (map.getAdj(currAction.pos) == false)
+        mapPos currAction = _actions[i];
+        DB_PRINT_MUL((F("Checking "))(i)(F(" ("))(currAction.x)(F(", "))(currAction.y)(F(", "))(currAction.z)(F(")\n")));
+        if (map.getAdj(currAction) == false)
             continue;
-        if (map.getType(currAction.pos) == BLACK_TILE)
+        if (map.getType(currAction) == BLACK_TILE)
             continue; // cannot go to a black tile
 
-        DB_PRINT_MUL((F("currAction: ("))(currAction.pos.x)(", ")(currAction.pos.y)(", ")(currAction.pos.z)("), ")(currAction.stepsAway)('\n'));
+        DB_PRINT_MUL((F("currAction: ("))(currAction.x)(", ")(currAction.y)(", ")(currAction.z)(")\n"));
 
         SimpleArray<Move> moves;
-        currAction.pos = _getLowerRampPos(currAction.pos);
-        uint8_t endRoation = goTo(currAction.pos, &moves);
+        currAction = _getLowerRampPos(currAction);
+        uint8_t endRoation = goTo(currAction, &moves);
         VAR_PRINTLN(endRoation);
         VAR_PRINTLN(moves.size());
         PANIC_RETURN_DEFAULT(SimpleArray<Move>());
 
-        uint8_t undiscoveredAdjTileDirec = _getUndiscAdjTileDirec(currAction.pos, endRoation);
+        uint8_t undiscoveredAdjTileDirec = _getUndiscAdjTileDirec(currAction, endRoation);
         VAR_PRINTLN(undiscoveredAdjTileDirec);
         if (_panic) {
             //ERROR("current tile has been marked as having adj. undisc. tiles, but turned out to have none check tile updating!");
@@ -452,12 +508,12 @@ SimpleArray<uint16_t> Mapper::_getAllStepsAway(mapPos pos) {
     pos = _getLowerRampPos(pos);
     SimpleArray<uint16_t> stepsAway;
     for (uint16_t i = 0; i < _actions.size(); i++) {
-        Action currAction = _actions[i];
-        currAction.pos = _getLowerRampPos(currAction.pos); //! CHECK IF THIS DOESN'T CAUSE MASSIVE TIME LOSS
+        mapPos currAction = _actions[i];
+        currAction = _getLowerRampPos(currAction); //! CHECK IF THIS DOESN'T CAUSE MASSIVE TIME LOSS
         _actions[i] = currAction;
         // because looking up the type and upadting it for each move is a bit accessive, but sometimes not really because its usefull
-        if (currAction.pos == pos)
-            stepsAway.push_back(currAction.stepsAway);
+        if (currAction == pos)
+            stepsAway.push_back(i);
     }
     if (PanikFlags::getInstance().outOfRam()) {
         panicMode();

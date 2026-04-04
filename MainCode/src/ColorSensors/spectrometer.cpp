@@ -48,6 +48,16 @@ void Spectrometer::update() {
     _readingStartTime = millis();
 }
 
+void Spectrometer::forceUpdate() {
+    if (!_good)
+        return;
+
+    sensor.readAllChannels(currentReading);
+    _newReading = true;
+    sensor.startReading(); // start a new reading again, so the coninuous reading is not broken
+    _readingStartTime = millis();
+}
+
 void Spectrometer::saveColorToEEPROM(ColorType colorId) {
     if (colorId <= ColorType::Invalid || colorId > ColorType::Red)
         return;

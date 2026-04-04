@@ -14,7 +14,11 @@ int main() {
     Mapper mapper;
 
     while (1) {
-        BREAK;
+        if (INPUT_BOOL((F("Reset to checkpoint ")), false)) {
+            mapper.resetToLastCheckpoint();
+            mapper.map.println(mapper.pos);
+            VAR_PRINTLN(mapper.map.getAdj(mapper.pos));
+        }
         DB_PRINTLN(F("--------------------------------------------------"));
         RACK;
         VAR_PRINTLN(mapper.map.dynamicMemorySize());

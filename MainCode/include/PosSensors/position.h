@@ -27,6 +27,15 @@
 
 extern GyroSensor gyro;
 
+bool getTofLFValid();
+bool getTofLBValid();
+bool getTofRFValid();
+bool getTofRBValid();
+bool getTofFBLValid();
+bool getTofBValid();
+bool getTofFTValid();
+bool getTofFBRValid();
+
 // function for calculating the angle of the robot using rear tofs
 double calculateposition (void);
 // convert radiant to grad

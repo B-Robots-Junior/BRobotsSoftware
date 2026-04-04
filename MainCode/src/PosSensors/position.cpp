@@ -27,6 +27,16 @@ NewLongToF frontBottomR(26, 0x38);
 
 GyroSensor gyro;
 
+// checks without an offset to make sure that they are invalid
+bool getTofLFValid() {return TofLF.read() > 0 && TofLF.read() < 0xFF;}
+bool getTofLBValid() {return TofLB.read() > 0 && TofLB.read() < 0xFF;}
+bool getTofRFValid() {return TofRF.read() > 0 && TofRF.read() < 0xFF;}
+bool getTofRBValid() {return TofRB.read() > 0 && TofRB.read() < 0xFF;}
+bool getTofFBLValid() {return frontBottomL.read() > 0 && frontBottomL.read() < 0xFF;}
+bool getTofBValid() {return Back.read() > 0 && Back.read() < TOF_TIMEOUT_VALUE;}
+bool getTofFTValid() {return frontTop.read() > 0 && frontTop.read() < TOF_TIMEOUT_VALUE;}
+bool getTofFBRValid() {return frontBottomR.read() > 0 && frontBottomR.read() < TOF_TIMEOUT_VALUE;}
+
 #define INIT_TOF(tof) \
     bool tof##Worked = !tof.init_ToF(); \
     if (!tof##Worked) { \
@@ -125,8 +135,8 @@ double calculateposition(void)
     double LeftFront = TofLF.read();
     double LeftBack = TofLB.read();
 
-    bool rightValid = RightFront >= 0 && RightFront < 255 && RightBack >= 0 && RightBack < 255;
-    bool leftValid = LeftFront >= 0 && LeftFront < 255 && LeftBack >= 0 && LeftBack < 255;
+    bool rightValid = getTofRFValid() && getTofRBValid();
+    bool leftValid = getTofLFValid() && getTofLBValid();
 
     double AngleRightRAD;  
     double AngleLeftRAD;
@@ -203,8 +213,8 @@ float getFrontAngle() {
 float getRightDistance() {
     int frontDist = getRFDistance();
     int backDist = getRBDistance();
-    bool frontValid = frontDist >= 0 && frontDist < 255;
-    bool backValid = backDist >= 0 && backDist < 255;
+    bool frontValid = getTofRFValid();
+    bool backValid = getTofRBValid();
     if (!frontValid) {
         if (!backValid)
             return 255;
@@ -218,8 +228,8 @@ float getRightDistance() {
 float getLeftDistance() {
     int frontDist = getLFDistance();
     int backDist = getLBDistance();
-    bool frontValid = frontDist >= 0 && frontDist < 255;
-    bool backValid = backDist >= 0 && backDist < 255;
+    bool frontValid = getTofLFValid();
+    bool backValid = getTofLBValid();
     if (!frontValid) {
         if (!backValid)
             return 255;
@@ -231,17 +241,25 @@ float getLeftDistance() {
 }
 
 bool wallFront() {
+    if (!getTofFTValid())
+        return false;
     return getFrontTopDistance() <= (300 - ROBOT_LENGHT_MM + WALL_DETECT_EXTRA);
 }
 
 bool wallBack() {
+    if (!getTofBValid())
+        return false;
     return getBackDistance() <= (300 - ROBOT_LENGHT_MM + WALL_DETECT_EXTRA);
 }
 
 bool wallRight() {
+    if (!getTofRBValid() && !getTofRFValid())
+        return false;
     return getRightDistance() <= (300 - ROBOT_WIDTH_MM + WALL_DETECT_EXTRA);
 }
 
 bool wallLeft() {
+    if (!getTofLBValid() && !getTofLFValid())
+        return false;
     return getLeftDistance() <= (300 - ROBOT_WIDTH_MM + WALL_DETECT_EXTRA);
 }

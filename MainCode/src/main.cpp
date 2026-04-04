@@ -7,14 +7,27 @@
 #include <PosSensors/position.h>
 #include <devices.h>
 #include <Mapping/mapping.h>
+#include <ColorSensors/spectrometer.h>
+#include <util/atomic.h>
 
 #include <config.h>
 
-#define USE_main_func true
+#define USE_main true
 #if CAT(USE_, CURR_MAIN)
-#undef USE_main_func
+#undef USE_main
 
+void setMainState(MainStates state, MainStates currentCase);
 void mainFunc();
+void resetInterrupt();
+void bumperInterrupt();
+bool initEverything();
+void rgbcSensorOnEnter();
+void rgbcSensorOnExit();
+bool isRamp();
+uint8_t getTileType();
+bool getUp();
+bool rampInfront();
+uint16_t getHeapUsage();
 
 int main() {
     init();
@@ -33,8 +46,465 @@ int main() {
 // ----------------------------------------------------------------------------------------------------
 // global data:
 
-MainStates mainState = MainStates::GET_MOVE;
+// mainState is accessed by isrs, so have caution when setting it
+volatile MainStates mainState = MainStates::GET_MOVE;
 bool inBlackTile = false;
+
+// ----------------------------------------------------------------------------------------------------
+
+// use this to set the main state in the while loop to avoid race conditions or conflicts
+// isrs can set the mainState directly, because they allready block other isrs and can access it independent of the case
+void setMainState(MainStates state, MainStates currentCase) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        // a state transition may only access the main state if the current case is the current state
+        // to avoid interrupt state changes to get overridden
+        if (mainState == currentCase)
+            mainState = state;
+    }
+}
+
+void mainFunc() {
+
+    // ----------------------------------------------------------------------------------------------------
+    // initialize all the needed data:
+
+    Mapper mapper;
+    Move currMove;
+
+    // turn data:
+    float targetTurnAngle = 0;
+    uint32_t turnStartTime = 0;
+    float turnTol = 1;
+
+    // drive data:
+    int targetFrontDist = 0;
+    int targetBackDist = 0;
+    float targetDriveAngle = 0;
+    int64_t targetEncoderDist = 0;
+    int64_t lastEncoderDist = 0;
+    int64_t trueEncoderDist = 0;
+
+    // blue tile interrupt data:
+    bool inBlueTile = false;
+    bool stoppedInTile = false;
+    int64_t blueTileLastEncoderDist = 0;
+    int64_t blueTileTrueEncoderDist = 0;
+    uint32_t blueTileStopStartTime = 0;
+    // the color sensor should check continuously if we are in a blue tile if so it should
+    // set the inBlueTile flag correctly and if you enter a blue tile set the blueTileStartEncoderDist
+    // so that when the encoder dist is greater than 150 + blueTileStartEncoderDist && !stoppedInTile you can stop for 5 seconds
+    // and change the flag, also if the encoder dist is grater than 300 + blueTileStartEncoderDist then you can reset the
+    // stoppedInTile flag and reset blueTileStartEncoderDist to the current encoder dist
+    // encoders should be good enough for one or two tiles, so I think this is fine
+
+    // ----------------------------------------------------------------------------------------------------
+    // initialize all sensors:
+
+    if (!initEverything())
+        mainState = MainStates::REINIT;
+
+    Devices::ledsBottom.fill(0xFF000000);
+    Devices::ledsBottom.show();
+
+    Devices::display.display.drawLine(0, 0, 128, 64, WHITE);
+    Devices::display.show();
+
+    BREAK;
+
+    //mapper.panicMode();
+
+    /*
+    for (uint8_t type = 0; type < 5; type++) {
+        DB_PRINT_MUL((SET_GREEN)(F("Calibrate "))(colorTypeToName[type])('!')(RESET_COLOR)('\n'));
+        BREAK;
+        //Devices::refSensor.calibrate(ColorType(type));
+        Devices::rgbcSensor.setColor(ColorType(type));
+        Devices::spec.setColorCurrent(ColorType(type));
+    }
+    */
+    
+    BREAK;
+
+    //saveToEEPROM<uint64_t>(256, 0); // num loops
+    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), 0); // sum durs
+    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2, 0xFFFFFFFF); // min dur
+    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3, 0); // max dur
+
+    // required or else it won't have a value for the first tile and it will be balck and the maze will be instantly "solved"
+    Devices::spec.forceUpdate();
+
+    bool running = true;
+    while (running) 
+    {
+        // uint64_t loopStart = millis();
+
+        // ----------------------------------------------------------------------------------------------------
+        // update all sensors:
+
+        updateTofs();
+        gyro.update();
+        Devices::spec.update();
+
+        // blue tile stuff:
+        ColorType currSpecType = Devices::spec.getColorId();
+        if (currSpecType == ColorType::Blue && !inBlueTile) {
+            // entered a blue tile, reset flags:
+            inBlueTile = true;
+            blueTileLastEncoderDist = getEncoderValueMM();
+            blueTileTrueEncoderDist = 0;
+            stoppedInTile = false;
+        } else if (currSpecType != ColorType::Blue && inBlueTile) {
+            // exited a blue tile, set flags accordingly
+            inBlueTile = false;
+            stoppedInTile = false;
+        }
+
+        if (inBlueTile && blueTileTrueEncoderDist > 300) {
+            blueTileLastEncoderDist = getEncoderValueMM();
+            blueTileTrueEncoderDist = 0;
+            stoppedInTile = false;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+
+        switch (mainState)
+        {
+
+        // ----------------------------------------------------------------------------------------------------
+        // reinit state:
+        case MainStates::REINIT: {
+            ERROR(F("Should not enter MainStates::REINIT in debug mode!"));
+
+            if (initEverything())
+                setMainState(MainStates::GET_MOVE, MainStates::REINIT);
+
+            break;
+        }
+        
+        // ----------------------------------------------------------------------------------------------------
+        // get the current move:
+        case MainStates::GET_MOVE: {
+            LACK;
+            VAR_PRINTLN(wallFront());
+            VAR_PRINTLN(wallRight());
+            VAR_PRINTLN(wallLeft());
+            VAR_PRINTLN(wallBack());
+            VAR_PRINTLN(getUp());
+            VAR_PRINTLN(getTileType());
+            DB_PRINT_MUL(
+                (F("Data:\n"))
+                (F("    fl: "))(getFrontBottomShortDistance())(F(", f: "))(getFrontTopDistance())(F(", fr: "))(getFrontBottomLongDistance())('\n')
+                (F("    lf: "))(getLFDistance())(F(", rf: "))(getRFDistance())('\n')
+                (F("    lb: "))(getLBDistance())(F(", rb: "))(getRBDistance())('\n')
+                (F("    l: "))(getLeftDistance())(F(", r: "))(getRightDistance())('\n')
+                (F("    b: "))(getBackDistance())('\n')
+            );
+
+            DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
+            currMove = mapper.currMove(wallFront(), wallRight(), wallLeft(), wallBack(), getUp(), getTileType());
+            DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
+            VAR_FUNC_PRINTLN(currMove);
+
+            if (currMove.distance == 0 && currMove.rotation == 0) {
+                DB_COLOR_PRINTLN(F("Completed the Maze YAY!"), SET_GREEN);
+                running = false;
+                break;
+            }
+
+            setMainState(MainStates::START_TURN, MainStates::GET_MOVE);
+            BREAK;
+            break;
+        }
+        
+        // ----------------------------------------------------------------------------------------------------
+        // start turn:
+        case MainStates::START_TURN: {
+            LACK;
+            if (currMove.rotation == 0) {
+                setMainState(MainStates::START_DRIVE, MainStates::START_TURN);
+                LACK;
+                BREAK;
+                break;
+            }
+
+            LACK;
+            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(-90 * currMove.rotation, calculateposition());
+            VAR_PRINTLN(targetTurnAngle);
+            turnStartTime = millis();
+            VAR_PRINTLN(turnStartTime);
+            turnTol = 1;
+
+            Devices::control.resetPIDs();
+
+            setMainState(MainStates::TURN, MainStates::START_TURN);
+            BREAK;
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // turn:
+        case MainStates::TURN: {
+            LACK;
+
+            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
+            if (ret == 0) {
+                setMainState(MainStates::START_DRIVE, MainStates::TURN);
+            } else if (ret == -1) {
+                ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
+                turnStartTime = millis();
+                turnTol *= 2; // increase tolerance and try agian.
+            }
+
+            // we don't want to count the encoders when turing so we skip the current delta
+            if (inBlueTile) {
+                blueTileLastEncoderDist = getEncoderValueMM();
+            }
+            
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // start drive:
+        case MainStates::START_DRIVE: {
+            if (currMove.distance == 0) {
+                setMainState(MainStates::COMPLETE_MOVE, MainStates::START_DRIVE);
+                BREAK;
+                break;
+            }
+
+            bool drivinOnToRamp = rampInfront() && (currMove.distance * 300 >= getFrontBottomLongDistance());
+
+            if (!getTofBValid() || drivinOnToRamp || isRamp()) {
+                LACK;
+                targetBackDist = -1; // can't rely on the back dist
+            } else {
+                LACK;
+                // its hard to check if there is ramp behind you, so you add 300 to the back of what you currently have and call it a day
+                // and let the front tof aling to the nearest tile, because it is prioritized and can detect ramps
+                targetBackDist = getBackDistance() + 300;
+                VAR_PRINTLN(targetBackDist);
+            }
+
+            if (!getTofFTValid() || drivinOnToRamp || isRamp()) {
+                LACK;
+                targetFrontDist = -1; // can't rely of on front dist
+            } else {
+                LACK;
+                // if there is a ramp in front of you and you are not driving on it simply subtract 300, because you can't align to the nearest tile like that
+                VAR_PRINTLN(rampInfront());
+                if (rampInfront()) {
+                    targetFrontDist = getFrontTopDistance() - 300 * currMove.distance;
+                } else { // if there is no ramp infront of you align to the full tile
+                    float currentTilesFrontFloat = getFrontTopDistance() / 300.0;
+                    int currentTilesFront = currentTilesFrontFloat;
+                    // if there is more than 90% of a tile there you can count is as a full tile (to avoid uneccecary panic modes)
+                    if (currentTilesFrontFloat - currentTilesFront >= 0.9) 
+                        currentTilesFront++;
+                    if (currMove.distance > currentTilesFront) {
+                        ERROR_MINOR(F("Mapper gave me bullshit data going into panic mode!"), SET_RED);
+                        mapper.panicMode();
+                        setMainState(MainStates::GET_MOVE, MainStates::START_DRIVE);
+                        BREAK;
+                        break;
+                    }
+                    targetFrontDist = (currentTilesFront - currMove.distance) * 300 + FRONT_WALL_DIST_MM;
+                }
+                VAR_PRINTLN(targetFrontDist);
+            }
+
+
+            targetEncoderDist = 300 * currMove.distance;
+            lastEncoderDist = getEncoderValueMM();
+            trueEncoderDist = 0;
+
+            targetDriveAngle = ReadGyroyaw();
+
+            VAR_PRINTLN((long)targetEncoderDist);
+            VAR_PRINTLN((long)lastEncoderDist);
+            VAR_PRINTLN((long)trueEncoderDist);
+            VAR_PRINTLN(targetFrontDist);
+            VAR_PRINTLN(targetBackDist);
+            VAR_PRINTLN(targetDriveAngle);
+            
+            setMainState(MainStates::DRIVE, MainStates::START_DRIVE);
+
+            Devices::control.resetPIDs();
+
+            BREAK;
+            BREAK_ONLY(
+                if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
+                    resetInterrupt();
+            )
+            break;
+        }
+        
+        // ----------------------------------------------------------------------------------------------------
+        // drive:
+        case MainStates::DRIVE: {
+            if (inBlackTile) {
+                Devices::motors.setSpeeds(0, 0, 0, 0);
+                setMainState(MainStates::BLACK_IR, MainStates::DRIVE);
+            }
+
+            // when driving count the current encoder delta
+            if (inBlueTile) {
+                blueTileTrueEncoderDist += (getEncoderValueMM() - blueTileLastEncoderDist);
+                blueTileLastEncoderDist = getEncoderValueMM();
+            }
+
+            if (inBlueTile && !stoppedInTile && blueTileTrueEncoderDist > BLUE_TILE_STOPPING_DIST) {
+                Devices::motors.setSpeeds(0, 0, 0, 0);
+                DB_COLOR_PRINTLN(F("Stopping in blue tile!"), SET_BLUE);
+                blueTileStopStartTime = millis();
+                setMainState(MainStates::BLUE_TILE_STOP, MainStates::DRIVE);
+                break;
+            }
+
+            int ret = Devices::control.driveAlong(targetBackDist, targetFrontDist, WALL_DIST_MM, targetDriveAngle, lastEncoderDist, trueEncoderDist, targetEncoderDist, 1.0f, FRONT_WALL_DIST_MM);
+            if (ret == 0) {
+                setMainState(MainStates::COMPLETE_MOVE, MainStates::DRIVE);
+            } else if (ret == -1) {
+                ERROR_MINOR(F("Failed to complete drive!"), SET_RED);
+                mapper.panicMode(); // we have no idea where we are anymore (tofs and encoder failed us)
+                setMainState(MainStates::GET_MOVE, MainStates::DRIVE);
+            }
+            
+            break;
+        }
+        
+        // ----------------------------------------------------------------------------------------------------
+        // complete action:
+        case MainStates::COMPLETE_MOVE: {
+            mapper.completeCurrMove();
+            
+            setMainState(MainStates::GET_MOVE, MainStates::COMPLETE_MOVE);
+
+            BREAK_ONLY(
+                if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
+                    resetInterrupt();
+            )
+            BREAK;
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // black tile interrupt occoured:
+        case MainStates::BLACK_IR: {
+            LACK;
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            // I don't think walls matter for black tiles
+            mapper.currMoveBlackTile(false, false, false, false);
+
+            setMainState(MainStates::BLACK_DRIVE, MainStates::BLACK_IR);
+            targetDriveAngle = ReadGyroyaw();
+
+            lastEncoderDist = -1; // currently abusing this to add a tolerance
+
+            Devices::control.resetPIDs();
+            BREAK_ONLY(
+                if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
+                    resetInterrupt();
+            )
+            BREAK;
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // drive out of black tile:
+        case MainStates::BLACK_DRIVE: {
+            // we wan't to subtract the driving out of the black tile if we are on a blue tile, because the driving into the black tile
+            // counted and we want to counteract that by subtracting from the true distance so the blue tile isn't counted twice,
+            // this is a very nieche edge case that saves us 10s, but easy enough to prevent
+            if (inBlueTile) {
+                blueTileTrueEncoderDist -= (getEncoderValueMM() - blueTileLastEncoderDist);
+                blueTileLastEncoderDist = getEncoderValueMM();
+            }
+
+            if (!inBlackTile && lastEncoderDist == -1) {
+                LACK;
+                lastEncoderDist = getEncoderValueMM();
+            }
+            // simply add a bit of toleranz here
+            if (lastEncoderDist != -1 && (getEncoderValueMM() - lastEncoderDist) >= BLACK_TILE_TOL) {
+                Devices::motors.setSpeeds(0, 0, 0, 0);
+                setMainState(MainStates::BLACK_TURN, MainStates::BLACK_DRIVE);
+                targetTurnAngle = ReadGyroyaw() + 180;
+                VAR_PRINTLN(targetTurnAngle);
+                turnStartTime = millis();
+                VAR_PRINTLN(turnStartTime);
+                turnTol = 1;
+                Devices::control.resetPIDs();
+                BREAK;
+                break;
+            }
+
+            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -1.0);
+
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // turn 180° after driving out of the black tile:
+        case MainStates::BLACK_TURN: {
+            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
+            if (ret == 0) {
+                LACK;
+                setMainState(MainStates::GET_MOVE, MainStates::BLACK_TURN);
+            } else if (ret == -1) {
+                ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
+                turnStartTime = millis();
+                turnTol *= 2; // increase tolerance and try agian.
+            }
+
+            // we don't want to count the encoders when turning because of the black tiles so we skip the current delta
+            if (inBlueTile) {
+                blueTileLastEncoderDist = getEncoderValueMM();
+            }
+
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // stop in a blue tile:
+        case MainStates::BLUE_TILE_STOP: {
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            if (millis() - blueTileStopStartTime >= 5000) {
+                stoppedInTile = true;
+                setMainState(MainStates::DRIVE, MainStates::BLUE_TILE_STOP);
+            }
+            break;
+        }
+
+        case MainStates::RESET_STATE: {
+            // simply do nothing in this sate and wait until the isr gets you out of it
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            BREAK_ONLY(
+                if (INPUT_BOOL((F("Exit reset state? ")), true))
+                    resetInterrupt();
+            )
+            break;
+        }
+
+        case MainStates::EXIT_RESET_STATE: {
+            mapper.resetToLastCheckpoint();
+            setMainState(MainStates::GET_MOVE, MainStates::EXIT_RESET_STATE);
+            break;
+        }
+
+        }
+
+        // uint64_t loopDur = millis() - loopStart;
+        // saveToEEPROM<uint64_t>(256, readFromEEPROM<uint64_t>(256) + 1); // num loops
+        // saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)) + loopDur); // sum durs
+        // if (loopDur < readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))
+        //     saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2, loopDur); // min dur
+        // if (loopDur > readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3))
+        //     saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3, loopDur); // max dur
+    }
+
+    // TODO: Actions after finishing the maze
+    BREAK;
+}
 
 #define CHECK_INIT(x) do { if (!(x)) {worked = false; DB_PRINT_MUL((SET_RED)(F("Init of '"))(F(#x))("' Failed!\n")(RESET_COLOR));}} while (0)
 bool initEverything() {
@@ -78,14 +548,37 @@ void rgbcSensorOnExit() {
     Devices::rgbcSensor.exitBlackTile();
 }
 
+void resetInterrupt() {
+    if (mainState != MainStates::RESET_STATE) {
+        Devices::motors.setSpeeds(0, 0, 0, 0);
+        mainState = MainStates::RESET_STATE;
+    } else {
+        mainState = MainStates::EXIT_RESET_STATE;
+    }
+}
+
+void bumperInterrupt() {
+    
+}
+
 bool isRamp() {
     return abs(wrap180(gyro.getPitch())) >= RAMP_INCLINE_THRESHOLD;
 }
 
 uint8_t getTileType() {
-    //! update this with more sensors
     if (isRamp())
         return RAMP_TILE;
+    DB_PRINT_MUL((F("getTileType spec output: "))(colorTypeToName[static_cast<int8_t>(Devices::spec.getColorId())])('\n'));
+    switch (Devices::spec.getColorId()) {
+    case ColorType::Blue:
+        return BLUE_TILE;
+    case ColorType::Black:
+        return BLACK_TILE;
+    case ColorType::Checkpoint:
+        return CHECKPOINT_TILE;
+    default:
+        return NORMAL_TILE;
+    }
     return NORMAL_TILE;
 }
 
@@ -94,7 +587,7 @@ bool getUp() {
 }
 
 bool rampInfront() {
-    if (getFrontTopDistance() >= 900 || getFrontBottomLongDistance() >= 900) // not reliable enough if too large
+    if (!getTofFTValid() || getTofFBRValid()) // not reliable enough if too large
         return false;
     return getFrontAngle() <= FRONT_RAMP_THRESHOLD;
 }
@@ -107,374 +600,5 @@ uint16_t getHeapUsage() {
         return 0;
     return (uint16_t)__brkval - (uint16_t)&__heap_start;
 }
-
-void mainFunc() {
-
-    // ----------------------------------------------------------------------------------------------------
-    // initialize all the needed data:
-
-    Mapper mapper;
-    Move currMove;
-
-    // turn data:
-    float targetTurnAngle = 0;
-    uint32_t turnStartTime = 0;
-    float turnTol = 1;
-
-    // drive data:
-    int targetFrontDist = 0;
-    int targetBackDist = 0;
-    float targetDriveAngle = 0;
-    int64_t targetEncoderDist = 0;
-    int64_t lastEncoderDist = 0;
-    int64_t trueEncoderDist = 0;
-
-    // ----------------------------------------------------------------------------------------------------
-    // initialize all sensors:
-
-    if (!initEverything())
-        mainState = MainStates::REINIT;
-
-    //mapper.panicMode();
-
-    /*
-    while (true) {
-        DB_PRINT_MUL(("front: ")(wallFront())(" right: ")(wallRight())(" back: ")(wallBack())(" left: ")(wallLeft())('\n'));
-        delay(100);
-    }
-    */
-
-    /*
-    for (uint8_t type = 0; type < 5; type++) {
-        DB_PRINT_MUL((SET_GREEN)(F("Calibrate "))(colorTypeToName[type])('!')(RESET_COLOR)('\n'));
-        BREAK;
-        Devices::refSensor.calibrate(ColorType(type));
-        Devices::rgbcSensor.setColor(ColorType(type));
-    }
-    */
-
-    for (uint8_t type = 0; type < 5; type++) {
-        // DB_PRINT_MUL((F("EEPROM_DATA: Type: "))(colorTypeToName[type])
-        //              (F(" r: "))(readFromEEPROM<uint16_t>(RGBC_SENSOR_OFFSET_EEPROM + (static_cast<int8_t>(type) * 4) * sizeof(uint16_t)))
-        //              (F(" g: "))(readFromEEPROM<uint16_t>(RGBC_SENSOR_OFFSET_EEPROM + (static_cast<int8_t>(type) * 4 + 1) * sizeof(uint16_t)))
-        //              (F(" b: "))(readFromEEPROM<uint16_t>(RGBC_SENSOR_OFFSET_EEPROM + (static_cast<int8_t>(type) * 4 + 2) * sizeof(uint16_t)))
-        //              (F(" c: "))(readFromEEPROM<uint16_t>(RGBC_SENSOR_OFFSET_EEPROM + (static_cast<int8_t>(type) * 4 + 3) * sizeof(uint16_t)))('\n'));
-
-        DB_PRINT_MUL((F("Type: "))(colorTypeToName[type])
-                     (F(" r: "))(Devices::rgbcSensor.colors[type][0])
-                     (F(" g: "))(Devices::rgbcSensor.colors[type][1])
-                     (F(" b: "))(Devices::rgbcSensor.colors[type][2])
-                     (F(" c: "))(Devices::rgbcSensor.colors[type][3])('\n'));
-    }
-
-    // DB_PRINT_MUL(("num loops: ")((long)readFromEEPROM<uint64_t>(256))('\n'));
-    // DB_PRINT_MUL(("sum durs: ")((long)readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)))('\n'));
-    // DB_PRINT_MUL(("min dur: ")((long)readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))('\n'));
-    // DB_PRINT_MUL(("max dur: ")((long)readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3))('\n'));
-
-    /*
-    while (true) {
-        uint16_t r, g, b, c;
-        Devices::rgbcSensor.sensor.getRawData(&r, &g, &b, &c);
-        DB_PRINT_MUL(("r: ")(r)(" g: ")(g)(" b: ")(b)(" c: ")(c)(" type: ")(static_cast<int8_t>(Devices::rgbcSensor.getCurrentId()))('\n'));
-        delay(100);
-    }
-    */
-
-    /*
-    while (true) {
-        updateTofs();
-        gyro.update();
-        DB_PRINT_MUL(("tof angle: ")(calculateposition())(" gyro angle: ")(ReadGyroyaw())('\n'));
-        delay(100);
-    }
-    */
-
-    BREAK;
-    
-    LACK;
-
-    //saveToEEPROM<uint64_t>(256, 0); // num loops
-    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), 0); // sum durs
-    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2, 0xFFFFFFFF); // min dur
-    //saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3, 0); // max dur
-
-    bool running = true;
-    while (running) 
-    {
-        // uint64_t loopStart = millis();
-
-        // ----------------------------------------------------------------------------------------------------
-        // update all sensors:
-
-        updateTofs();
-        gyro.update();
-
-        // ----------------------------------------------------------------------------------------------------
-
-        switch (mainState)
-        {
-
-        // ----------------------------------------------------------------------------------------------------
-        // reinit state:
-        case MainStates::REINIT: {
-            ERROR(F("Should not enter MainStates::REINIT in debug mode!"));
-
-            if (!initEverything())
-                mainState = MainStates::REINIT;
-            else
-                mainState = MainStates::GET_MOVE;
-
-            break;
-        }
-        
-        // ----------------------------------------------------------------------------------------------------
-        // get the current move:
-        case MainStates::GET_MOVE: {
-            LACK;
-            VAR_PRINTLN(wallFront());
-            VAR_PRINTLN(wallRight());
-            VAR_PRINTLN(wallLeft());
-            VAR_PRINTLN(wallBack());
-            VAR_PRINTLN(getUp());
-            VAR_PRINTLN(getTileType());
-
-            DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
-            currMove = mapper.currMove(wallFront(), wallRight(), wallLeft(), wallBack(), getUp(), getTileType());
-            DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
-            VAR_FUNC_PRINTLN(currMove);
-
-            if (currMove.distance == 0 && currMove.rotation == 0) {
-                DB_COLOR_PRINTLN(F("Completed the Maze YAY!"), SET_GREEN);
-                running = false;
-                break;
-            }
-
-            mainState = MainStates::START_TURN;
-            BREAK;
-            break;
-        }
-        
-        // ----------------------------------------------------------------------------------------------------
-        // start turn:
-        case MainStates::START_TURN: {
-            LACK;
-            if (currMove.rotation == 0) {
-                mainState = MainStates::START_DRIVE;
-                LACK;
-                BREAK;
-                break;
-            }
-
-            LACK;
-            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(-90 * currMove.rotation, calculateposition());
-            VAR_PRINTLN(targetTurnAngle);
-            turnStartTime = millis();
-            VAR_PRINTLN(turnStartTime);
-            turnTol = 1;
-
-            Devices::control.resetPIDs();
-
-            mainState = MainStates::TURN;
-            BREAK;
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
-        // turn:
-        case MainStates::TURN: {
-            LACK;
-
-            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
-            if (ret == 0) {
-                mainState = MainStates::START_DRIVE;
-            } else if (ret == -1) {
-                ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
-                turnStartTime = millis();
-                turnTol *= 2; // increase tolerance and try agian.
-            }
-            
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
-        // start drive:
-        case MainStates::START_DRIVE: {
-            if (currMove.distance == 0) {
-                mainState = MainStates::COMPLETE_MOVE;
-                BREAK;
-                break;
-            }
-
-            bool drivinOnToRamp = rampInfront() && (currMove.distance * 300 >= getFrontBottomLongDistance());
-
-            if (getBackDistance() >= TOF_TIMEOUT_VALUE || drivinOnToRamp || isRamp()) {
-                LACK;
-                targetBackDist = -1; // can't rely on the back dist
-            } else {
-                LACK;
-                // its hard to check if there is ramp behind you, so you add 300 to the back of what you currently have and call it a day
-                // and let the front tof aling to the nearest tile, because it is prioritized and can detect ramps
-                targetBackDist = getBackDistance() + 300;
-                VAR_PRINTLN(targetBackDist);
-            }
-
-            if (getFrontTopDistance() >= TOF_TIMEOUT_VALUE || drivinOnToRamp || isRamp()) {
-                LACK;
-                targetFrontDist = -1; // can't rely of on front dist
-            } else {
-                LACK;
-                // if there is a ramp in front of you and you are not driving on it simply subtract 300, because you can't align to the nearest tile like that
-                VAR_PRINTLN(rampInfront());
-                if (rampInfront()) {
-                    targetFrontDist = getFrontTopDistance() - 300 * currMove.distance;
-                } else { // if there is no ramp infront of you align to the full tile
-                    float currentTilesFrontFloat = getFrontTopDistance() / 300.0;
-                    int currentTilesFront = currentTilesFrontFloat;
-                    // if there is more than 90% of a tile there you can count is as a full tile (to avoid uneccecary panic modes)
-                    if (currentTilesFrontFloat - currentTilesFront >= 0.9) 
-                        currentTilesFront++;
-                    if (currMove.distance > currentTilesFront) {
-                        ERROR_MINOR(F("Mapper gave me bullshit data going into panic mode!"), SET_RED);
-                        mapper.panicMode();
-                        mainState = MainStates::GET_MOVE;
-                        BREAK;
-                        break;
-                    }
-                    targetFrontDist = (currentTilesFront - currMove.distance) * 300 + FRONT_WALL_DIST_MM;
-                }
-                VAR_PRINTLN(targetFrontDist);
-            }
-
-
-            targetEncoderDist = 300 * currMove.distance;
-            lastEncoderDist = getEncoderValueMM();
-            trueEncoderDist = 0;
-
-            targetDriveAngle = ReadGyroyaw();
-
-            VAR_PRINTLN((long)targetEncoderDist);
-            VAR_PRINTLN((long)lastEncoderDist);
-            VAR_PRINTLN((long)trueEncoderDist);
-            VAR_PRINTLN(targetFrontDist);
-            VAR_PRINTLN(targetBackDist);
-            VAR_PRINTLN(targetDriveAngle);
-            
-            mainState = MainStates::DRIVE;
-
-            Devices::control.resetPIDs();
-
-            BREAK;
-            break;
-        }
-        
-        // ----------------------------------------------------------------------------------------------------
-        // drive:
-        case MainStates::DRIVE: {
-            if (inBlackTile) {
-                Devices::motors.setSpeeds(0, 0, 0, 0);
-                mainState = MainStates::BLACK_IR;
-            }
-
-            int ret = Devices::control.driveAlong(targetBackDist, targetFrontDist, WALL_DIST_MM, targetDriveAngle, lastEncoderDist, trueEncoderDist, targetEncoderDist, 1.0f, FRONT_WALL_DIST_MM);
-            if (ret == 0) {
-                mainState = MainStates::COMPLETE_MOVE;
-            } else if (ret == -1) {
-                ERROR_MINOR(F("Failed to complete drive!"), SET_RED);
-                mapper.panicMode(); // we have no idea where we are anymore (tofs and encoder failed us)
-                mainState = MainStates::GET_MOVE;
-            }
-            
-            break;
-        }
-        
-        // ----------------------------------------------------------------------------------------------------
-        // complete action:
-        case MainStates::COMPLETE_MOVE: {
-            mapper.completeCurrMove();
-            
-            mainState = MainStates::GET_MOVE;
-
-            BREAK;
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
-        // black tile interrupt occoured:
-        case MainStates::BLACK_IR: {
-            LACK;
-            Devices::motors.setSpeeds(0, 0, 0, 0);
-            // I don't think walls matter for black tiles
-            mapper.currMoveBlackTile(false, false, false, false);
-
-            mainState = MainStates::BLACK_DRIVE;
-            targetDriveAngle = ReadGyroyaw();
-
-            lastEncoderDist = -1; // currently abusing this to add a tolerance
-
-            Devices::control.resetPIDs();
-            BREAK;
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
-        // drive out of black tile:
-        case MainStates::BLACK_DRIVE: {
-            if (!inBlackTile && lastEncoderDist == -1) {
-                LACK;
-                lastEncoderDist = getEncoderValueMM();
-            }
-            // simply add a bit of toleranz here
-            if (lastEncoderDist != -1 && (getEncoderValueMM() - lastEncoderDist) >= BLACK_TILE_TOL) {
-                Devices::motors.setSpeeds(0, 0, 0, 0);
-                mainState = MainStates::BLACK_TURN;
-                targetTurnAngle = ReadGyroyaw() + 180;
-                VAR_PRINTLN(targetTurnAngle);
-                turnStartTime = millis();
-                VAR_PRINTLN(turnStartTime);
-                turnTol = 1;
-                Devices::control.resetPIDs();
-                BREAK;
-                break;
-            }
-
-            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -1.0);
-
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
-        // turn 180° after driving out of the black tile:
-        case MainStates::BLACK_TURN: {
-            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
-            if (ret == 0) {
-                LACK;
-                mainState = MainStates::GET_MOVE;
-            } else if (ret == -1) {
-                ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
-                turnStartTime = millis();
-                turnTol *= 2; // increase tolerance and try agian.
-            }
-
-            break;
-        }
-
-        }
-
-        // uint64_t loopDur = millis() - loopStart;
-        // saveToEEPROM<uint64_t>(256, readFromEEPROM<uint64_t>(256) + 1); // num loops
-        // saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)) + loopDur); // sum durs
-        // if (loopDur < readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))
-        //     saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2, loopDur); // min dur
-        // if (loopDur > readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3))
-        //     saveToEEPROM<uint64_t>(256 + sizeof(uint64_t) * 3, loopDur); // max dur
-    }
-
-    // TODO: Actions after finishing the maze
-    BREAK;
-}
-
-#else
-
 
 #endif

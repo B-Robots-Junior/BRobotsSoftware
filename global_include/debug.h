@@ -1,5 +1,5 @@
 // set this to true to get a debug output or false to not
-#define DEBUG_MODE false
+#define DEBUG_MODE true
 // these only matter when in debug mode
 #define DELAYS_ENABLED true
 #define BREAKS_ENABLED true
@@ -118,6 +118,16 @@
         DB_PRINTLN(F("\' being true:"));\
         BREAK\
     }} while (0))
+
+#define INPUT_BOOL(seq, default)\
+    IF_BREAK([]() -> bool { \
+        DB_PRINT_MUL(seq (F("(y/n): "))); \
+        while (!Serial.available()) {}\
+        char c = Serial.read(); \
+        delay(100);\
+        while (Serial.available()) { Serial.read(); }\
+        return c == 'Y' || c == 'y' || c == '1'; \
+    }(), default)
 
 #define VAR_PRINT(var) DEBUG_MACRO(do {DB_PRINT(F(#var)); DB_PRINT(": "); DB_PRINT(var);} while (0))
 

@@ -29,7 +29,7 @@ private:
 
 public:
     Display(uint8_t mosi_pin, uint8_t sclk_pin, uint8_t dc_pin, uint8_t rst_pin, uint8_t cs_pin, uint8_t width = SCREEN_WIDTH, uint8_t height = SCREEN_HEIGHT) : 
-        _width(width), _height(height), display(width, height, mosi_pin, sclk_pin, dc_pin, rst_pin, cs_pin) {}
+        _width(width), _height(height), display(width, height, &SPI, dc_pin, rst_pin, cs_pin) {}
 
     Menu* currMenu;
     Adafruit_SSD1306 display;
