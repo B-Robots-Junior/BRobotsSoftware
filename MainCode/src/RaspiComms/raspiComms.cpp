@@ -1,6 +1,7 @@
 #include <RaspiComms/raspiComms.h>
 #include <EEPROM.h>
 #include <config.h>
+#include <debug.h>
 
 Packet invalidPacket(PacketType::INVALID, 0);
 
@@ -96,8 +97,12 @@ void RaspiComms::sendPos(uint8_t x, uint8_t y, uint8_t z, uint8_t rotation) {
 }
 
 RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
-    if (!_checkPacket())
+    if (!_checkPacket()) {
+        DB_PRINTLN(F("No packets available!"));
         return RaspiEvent::NO_MORE_PACKETS;
+    }
+
+    DB_PRINTLN(F("Recieved Packet from raspi!"));
 
     Packet packet = _recievePacket(10);
 
@@ -158,12 +163,21 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         debugLog(F("got CAM_VICTIM_VALID, successfully!"));
         _camState = CameraState::LOOKING;
         switch (packet[0]) {
+#if USE_NEW_RASPI_COMMS
         case 0: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_PSI_RIGHT : RaspiEvent::DETECTED_PSI_LEFT;
         case 1: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_PHI_RIGHT : RaspiEvent::DETECTED_PHI_LEFT;
         case 2: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_OMEGA_RIGHT : RaspiEvent::DETECTED_OMEGA_LEFT;
         case 3: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_0_RIGHT : RaspiEvent::DETECTED_RING_SUM_0_LEFT;
         case 4: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_1_RIGHT : RaspiEvent::DETECTED_RING_SUM_1_LEFT;
         case 5: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_2_RIGHT : RaspiEvent::DETECTED_RING_SUM_2_LEFT;
+#else
+        case 0: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_H_RIGHT : RaspiEvent::DETECTED_H_LEFT;
+        case 1: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_S_RIGHT : RaspiEvent::DETECTED_S_LEFT;
+        case 2: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_U_RIGHT : RaspiEvent::DETECTED_U_LEFT;
+        case 3: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_GREEN_RIGHT : RaspiEvent::DETECTED_GREEN_LEFT;
+        case 4: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_YELLOW_RIGHT : RaspiEvent::DETECTED_YELLOW_LEFT;
+        case 5: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RED_RIGHT : RaspiEvent::DETECTED_RED_LEFT;
+#endif
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data!"));
         return RaspiEvent::NONE;

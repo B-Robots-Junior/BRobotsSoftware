@@ -105,10 +105,7 @@ void mainFunc() {
 
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
-
-    Devices::display.display.drawLine(0, 0, 128, 64, WHITE);
-    Devices::display.show();
-
+    
     BREAK;
 
     //mapper.panicMode();

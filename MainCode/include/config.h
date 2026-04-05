@@ -8,6 +8,8 @@
 
 #define CURR_MAIN camera
 
+#define USE_NEW_RASPI_COMMS false
+
 // eeprom settings
 #define P_OFFSET_EEPROM 0 // 2 bytes float
 #define I_OFFSET_EEPROM 2 // 2 bytes float

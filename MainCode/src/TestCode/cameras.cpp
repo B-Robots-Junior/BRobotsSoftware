@@ -6,66 +6,78 @@
 #if CAT(USE_, CURR_MAIN)
 #undef USE_camera
 
+void rgbcSensorOnEnter() {}
+void rgbcSensorOnExit() {}
+
 int main() {
     init();
 
+    BEGIN_DEBUG(BAUDE_RATE);
+    Serial1.begin(115200);
+
+    DB_PRINTLN(F("Start!"));
+
     while (true)
     {
-        delay(500);
-        Devices::comms.sendTile(10, 11, 12, 100);
-        Devices::comms.sendPos(10, 10, 10, 3);
+        if (Serial1.available())
+            VAR_PRINTLN(Serial1.read());
+        /*
+        delay(20);
+        // Devices::comms.sendTile(10, 11, 12, 100);
+        // Devices::comms.sendPos(10, 10, 10, 3);
 
         switch (Devices::comms.update(100, 101, 102, 103)) {
         case RaspiEvent::CAMERA_INVALID:
-            Devices::comms.debugLog(F("Invalid cam!"));
+            DB_PRINTLN(F("Invalid cam!"));
             break;
         case RaspiEvent::CAMERA_TRIGGERED_LEFT:
-            Devices::comms.debugLog(F("Cam triggered left!"));
+            DB_PRINTLN(F("Cam triggered left!"));
             break;
         case RaspiEvent::CAMERA_TRIGGERED_RIGTH:
-            Devices::comms.debugLog(F("Cam triggered right!"));
+            DB_PRINTLN(F("Cam triggered right!"));
             break;
-        case RaspiEvent::DETECTED_OMEGA_LEFT:
-            Devices::comms.debugLog(F("DETECTED_OMEGA_LEFT!"));
+        case RaspiEvent::DETECTED_H_RIGHT:
+            DB_PRINTLN(F("DETECTED_H_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_OMEGA_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_OMEGA_RIGHT!"));
+        case RaspiEvent::DETECTED_H_LEFT:
+            DB_PRINTLN(F("DETECTED_H_LEFT!"));
             break;
-        case RaspiEvent::DETECTED_PHI_LEFT:
-            Devices::comms.debugLog(F("DETECTED_PHI_LEFT!"));
+        case RaspiEvent::DETECTED_S_RIGHT:
+            DB_PRINTLN(F("DETECTED_S_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_PHI_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_PHI_RIGHT!"));
+        case RaspiEvent::DETECTED_S_LEFT:
+            DB_PRINTLN(F("DETECTED_S_LEFT!"));
             break;
-        case RaspiEvent::DETECTED_PSI_LEFT:
-            Devices::comms.debugLog(F("DETECTED_PSI_LEFT!"));
+        case RaspiEvent::DETECTED_U_RIGHT:
+            DB_PRINTLN(F("DETECTED_U_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_PSI_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_PSI_RIGHT!"));
+        case RaspiEvent::DETECTED_U_LEFT:
+            DB_PRINTLN(F("DETECTED_U_LEFT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_0_LEFT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_0_LEFT!"));
+        case RaspiEvent::DETECTED_GREEN_RIGHT:
+            DB_PRINTLN(F("DETECTED_GREEN_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_0_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_0_RIGHT!"));
+        case RaspiEvent::DETECTED_GREEN_LEFT:
+            DB_PRINTLN(F("DETECTED_GREEN_LEFT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_1_LEFT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_1_LEFT!"));
+        case RaspiEvent::DETECTED_YELLOW_RIGHT:
+            DB_PRINTLN(F("DETECTED_YELLOW_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_1_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_1_RIGHT!"));
+        case RaspiEvent::DETECTED_YELLOW_LEFT:
+            DB_PRINTLN(F("DETECTED_YELLOW_LEFT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_2_LEFT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_2_LEFT!"));
+        case RaspiEvent::DETECTED_RED_RIGHT:
+            DB_PRINTLN(F("DETECTED_RED_RIGHT!"));
             break;
-        case RaspiEvent::DETECTED_RING_SUM_2_RIGHT:
-            Devices::comms.debugLog(F("DETECTED_RING_SUM_2_RIGHT!"));
+        case RaspiEvent::DETECTED_RED_LEFT:
+            DB_PRINTLN(F("DETECTED_RED_LEFT!"));
             break;
         case RaspiEvent::NO_MORE_PACKETS:
             break;
         case RaspiEvent::NONE:
             break;
         }
+            */
     }
 }
 

@@ -79,7 +79,8 @@ enum class RaspiEvent {
     NONE,
     CAMERA_TRIGGERED_RIGTH,
     CAMERA_TRIGGERED_LEFT,
-    CAMERA_INVALID, // if the camera comms becomes invalid for some reason 
+    CAMERA_INVALID, // if the camera comms becomes invalid for some reason
+#if USE_NEW_RASPI_COMMS
     DETECTED_PSI_RIGHT,
     DETECTED_PHI_RIGHT,
     DETECTED_OMEGA_RIGHT,
@@ -92,6 +93,20 @@ enum class RaspiEvent {
     DETECTED_RING_SUM_0_LEFT,
     DETECTED_RING_SUM_1_LEFT,
     DETECTED_RING_SUM_2_LEFT
+#else
+    DETECTED_H_RIGHT,
+    DETECTED_S_RIGHT,
+    DETECTED_U_RIGHT,
+    DETECTED_H_LEFT,
+    DETECTED_S_LEFT,
+    DETECTED_U_LEFT,
+    DETECTED_GREEN_RIGHT,
+    DETECTED_YELLOW_RIGHT,
+    DETECTED_RED_RIGHT,
+    DETECTED_GREEN_LEFT,
+    DETECTED_YELLOW_LEFT,
+    DETECTED_RED_LEFT
+#endif
 };
 
 enum class CameraState {
