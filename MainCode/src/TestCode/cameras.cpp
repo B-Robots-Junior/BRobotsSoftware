@@ -1,10 +1,11 @@
 #include <Arduino.h>
 #include <devices.h>
 #include <RaspiComms/raspiDebug.h>
+#include <config.h>
 
-#define USE_camera true
+#define USE_cameras true
 #if CAT(USE_, CURR_MAIN)
-#undef USE_camera
+#undef USE_cameras
 
 void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}
@@ -19,9 +20,6 @@ int main() {
 
     while (true)
     {
-        if (Serial1.available())
-            VAR_PRINTLN(Serial1.read());
-        /*
         delay(20);
         // Devices::comms.sendTile(10, 11, 12, 100);
         // Devices::comms.sendPos(10, 10, 10, 3);
@@ -77,7 +75,6 @@ int main() {
         case RaspiEvent::NONE:
             break;
         }
-            */
     }
 }
 

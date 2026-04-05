@@ -98,7 +98,6 @@ void RaspiComms::sendPos(uint8_t x, uint8_t y, uint8_t z, uint8_t rotation) {
 
 RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
     if (!_checkPacket()) {
-        DB_PRINTLN(F("No packets available!"));
         return RaspiEvent::NO_MORE_PACKETS;
     }
 
@@ -128,6 +127,8 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
             _camState = CameraState::LOOKING;
             return RaspiEvent::NONE;
         }
+        VAR_PRINTLN(packet.size());
+        VAR_PRINTLN(packet[0]);
         if (packet[0] == 1) {
             _camState = CameraState::TRIGGERED_RIGHT;
             uint16_t data = 0;
@@ -136,7 +137,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
             _sendPacket(PacketType::CAM_TOF_DATA, 2, (uint8_t*)&data);
             return RaspiEvent::CAMERA_TRIGGERED_RIGTH;
         }
-        else if (packet[0] == 2) {
+        else if (packet[0] == 0) {
             _camState = CameraState::TRIGGERED_LEFT;
             uint16_t data = 0;
             ((uint8_t*)&data)[0] = fl;
@@ -161,22 +162,23 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
             return RaspiEvent::CAMERA_INVALID;
         }
         debugLog(F("got CAM_VICTIM_VALID, successfully!"));
+        CameraState oldState = _camState;
         _camState = CameraState::LOOKING;
         switch (packet[0]) {
 #if USE_NEW_RASPI_COMMS
-        case 0: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_PSI_RIGHT : RaspiEvent::DETECTED_PSI_LEFT;
-        case 1: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_PHI_RIGHT : RaspiEvent::DETECTED_PHI_LEFT;
-        case 2: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_OMEGA_RIGHT : RaspiEvent::DETECTED_OMEGA_LEFT;
-        case 3: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_0_RIGHT : RaspiEvent::DETECTED_RING_SUM_0_LEFT;
-        case 4: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_1_RIGHT : RaspiEvent::DETECTED_RING_SUM_1_LEFT;
-        case 5: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RING_SUM_2_RIGHT : RaspiEvent::DETECTED_RING_SUM_2_LEFT;
+        case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_PSI_RIGHT : RaspiEvent::DETECTED_PSI_LEFT;
+        case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_PHI_RIGHT : RaspiEvent::DETECTED_PHI_LEFT;
+        case 2: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_OMEGA_RIGHT : RaspiEvent::DETECTED_OMEGA_LEFT;
+        case 3: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_0_RIGHT : RaspiEvent::DETECTED_RING_SUM_0_LEFT;
+        case 4: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_1_RIGHT : RaspiEvent::DETECTED_RING_SUM_1_LEFT;
+        case 5: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_2_RIGHT : RaspiEvent::DETECTED_RING_SUM_2_LEFT;
 #else
-        case 0: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_H_RIGHT : RaspiEvent::DETECTED_H_LEFT;
-        case 1: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_S_RIGHT : RaspiEvent::DETECTED_S_LEFT;
-        case 2: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_U_RIGHT : RaspiEvent::DETECTED_U_LEFT;
-        case 3: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_GREEN_RIGHT : RaspiEvent::DETECTED_GREEN_LEFT;
-        case 4: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_YELLOW_RIGHT : RaspiEvent::DETECTED_YELLOW_LEFT;
-        case 5: return _camState == CameraState::TRIGGERED_RIGHT ? RaspiEvent::DETECTED_RED_RIGHT : RaspiEvent::DETECTED_RED_LEFT;
+        case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_H_RIGHT : RaspiEvent::DETECTED_H_LEFT;
+        case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_S_RIGHT : RaspiEvent::DETECTED_S_LEFT;
+        case 2: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_U_RIGHT : RaspiEvent::DETECTED_U_LEFT;
+        case 3: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_GREEN_RIGHT : RaspiEvent::DETECTED_GREEN_LEFT;
+        case 4: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_YELLOW_RIGHT : RaspiEvent::DETECTED_YELLOW_LEFT;
+        case 5: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RED_RIGHT : RaspiEvent::DETECTED_RED_LEFT;
 #endif
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data!"));
@@ -217,7 +219,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(P_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(P_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     
     // --------------------------------------------------
     case PacketType::I_VAL:
@@ -227,7 +229,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(I_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(I_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     
     // --------------------------------------------------
     case PacketType::D_VAL:
@@ -237,7 +239,7 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         EEPROM.write(D_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(D_OFFSET_EEPROM + 1, packet.data()[1]);
-        DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] || (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
     }
 
     return RaspiEvent::NONE;

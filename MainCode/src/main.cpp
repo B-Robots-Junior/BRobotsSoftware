@@ -12,9 +12,9 @@
 
 #include <config.h>
 
-#define USE_main true
-#if CAT(USE_, CURR_MAIN)
-#undef USE_main
+//#define USE_main true
+//#if CAT(USE_, CURR_MAIN)
+//#undef USE_main
 
 void setMainState(MainStates state, MainStates currentCase);
 void mainFunc();
@@ -105,6 +105,9 @@ void mainFunc() {
 
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
+
+    Devices::ledsTop.fill(0xFF000000);
+    Devices::ledsTop.show();
     
     BREAK;
 
@@ -598,4 +601,4 @@ uint16_t getHeapUsage() {
     return (uint16_t)__brkval - (uint16_t)&__heap_start;
 }
 
-#endif
+//#endif
