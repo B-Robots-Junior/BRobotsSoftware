@@ -6,3 +6,7 @@
 6. mapping reset is not optimal, because when you reset it may not finish the entire maze, because the tiles are marked as detected and won't be driven on again (FIXED) !!NOT IMPLEMENTED!!
 7. Test Bumper correction (done)
 8. Lötbrücke für die leds (done)
+9. add buttons for calib, start and reset (start and reset is done, calibration is currently eeprom)
+10. implement camera code
+11. add bumper
+12. auswurfsystem

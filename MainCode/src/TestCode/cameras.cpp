@@ -18,6 +18,10 @@ int main() {
 
     DB_PRINTLN(F("Start!"));
 
+    Devices::ledsTop.begin();
+    Devices::ledsTop.fill(0xFFFFFFFF);
+    Devices::ledsTop.show();
+
     while (true)
     {
         delay(20);

@@ -9,12 +9,13 @@
 #include <Mapping/mapping.h>
 #include <ColorSensors/spectrometer.h>
 #include <util/atomic.h>
+#include <PinChangeInterrupt.h>
 
 #include <config.h>
 
-//#define USE_main true
-//#if CAT(USE_, CURR_MAIN)
-//#undef USE_main
+#define USE_main true
+#if CAT(USE_, CURR_MAIN)
+#undef USE_main
 
 void setMainState(MainStates state, MainStates currentCase);
 void mainFunc();
@@ -29,13 +30,40 @@ bool getUp();
 bool rampInfront();
 uint16_t getHeapUsage();
 
+#define CALIB_LED 30
+#define MAIN_LED 42
+
+#define BUTTON1 PIN_A10 // BUTTON_PIN_3
+#define BUTTON2 PIN_A11 // BUTTON_PIN_4
+#define BUTTON3 PIN_A8 // BUTTON_PIN_1
+#define BUTTON4 PIN_A9 // BUTTON_PIN_2
+
 int main() {
     init();
     sei();
 
     BEGIN_DEBUG(BAUDE_RATE);
 
+    pinMode(MAIN_LED, OUTPUT);
+    pinMode(CALIB_LED, OUTPUT);
+
+    pinMode(BUTTON1, INPUT);
+    pinMode(BUTTON2, INPUT);
+    pinMode(BUTTON3, INPUT);
+    pinMode(BUTTON4, INPUT);
+    
+    digitalWrite(CALIB_LED, LOW);
+    digitalWrite(MAIN_LED, LOW);
+
     DB_PRINTLN("Start Main!");
+
+    while (!digitalRead(BUTTON1)) {} // wait until start
+    while (digitalRead(BUTTON1)) {} // wait until button unpressed
+
+    delay(100); // simply that the reset does not trigger accidentally
+
+    attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
+
     BREAK;
 
     mainFunc();
@@ -60,6 +88,12 @@ void setMainState(MainStates state, MainStates currentCase) {
         // to avoid interrupt state changes to get overridden
         if (mainState == currentCase)
             mainState = state;
+    }
+}
+
+void uncondSetMainState(MainStates state) {
+    ATOMIC_BLOCK(ATOMIC_RESTORESTATE) {
+        mainState = state;
     }
 }
 
@@ -96,6 +130,11 @@ void mainFunc() {
     // and change the flag, also if the encoder dist is grater than 300 + blueTileStartEncoderDist then you can reset the
     // stoppedInTile flag and reset blueTileStartEncoderDist to the current encoder dist
     // encoders should be good enough for one or two tiles, so I think this is fine
+
+    // camera state stuff
+    MainStates mainStateBeforeCamInt = mainState;
+    RaspiEvent detection = RaspiEvent::NONE;
+    uint32_t cameraStartTime = millis();
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
@@ -164,6 +203,30 @@ void mainFunc() {
             blueTileTrueEncoderDist = 0;
             stoppedInTile = false;
         }
+
+        // ----------------------------------------------------------------------------------------------------
+        // update camera:
+
+        RaspiEvent raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
+        while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
+            raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
+#if USE_NEW_RASPI_COMMS
+            if (raspiEvent >= RaspiEvent::DETECTED_PSI_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RING_SUM_2_LEFT) {
+                mainStateBeforeCamInt = mainState;
+                detection = raspiEvent;
+                uncondSetMainState(MainStates::CAMERA_DETECTION);
+                cameraStartTime = millis();
+            }
+#else
+            if (raspiEvent >= RaspiEvent::DETECTED_H_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RED_LEFT) {
+                mainStateBeforeCamInt = mainState;
+                detection = raspiEvent;
+                uncondSetMainState(MainStates::CAMERA_DETECTION);
+                cameraStartTime = millis();
+            }
+#endif
+        }
+        
 
         // ----------------------------------------------------------------------------------------------------
 
@@ -491,6 +554,16 @@ void mainFunc() {
             break;
         }
 
+        case MainStates::CAMERA_DETECTION: {
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            digitalWrite(MAIN_LED, !(((millis() - cameraStartTime) / 500) % 2)); // blink in 500ms intervals 
+            if (millis() - cameraStartTime >= 5000) {
+                setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
+                digitalWrite(MAIN_LED, LOW);
+            }
+            break;
+        }
+
         }
 
         // uint64_t loopDur = millis() - loopStart;
@@ -601,4 +674,4 @@ uint16_t getHeapUsage() {
     return (uint16_t)__brkval - (uint16_t)&__heap_start;
 }
 
-//#endif
+#endif

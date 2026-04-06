@@ -1,4 +1,3 @@
-#include <U8g2lib.h>
 #include <debug.h>
 
 #include <config.h>
@@ -6,6 +5,8 @@
 #define USE_display true
 #if CAT(USE_, CURR_MAIN)
 #undef USE_display
+
+#include <U8g2lib.h>
 
 void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}

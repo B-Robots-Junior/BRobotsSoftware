@@ -28,8 +28,8 @@ bool Devices::init() {
     CHECK_INIT(ledsBottom.begin());
     CHECK_INIT(ledsTop.begin());
     CHECK_INIT(spec.begin());
-    Serial1.begin(115200);
     // CHECK_INIT(display.begin());
+    Serial1.begin(115200);
     motors.init();
     control.resetPIDs();
     return worked;
