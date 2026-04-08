@@ -20,7 +20,8 @@
 void setMainState(MainStates state, MainStates currentCase);
 void mainFunc();
 void resetInterrupt();
-void bumperInterrupt();
+void bumperInterruptRight();
+void bumperInterruptLeft();
 bool initEverything();
 void rgbcSensorOnEnter();
 void rgbcSensorOnExit();
@@ -29,6 +30,7 @@ uint8_t getTileType();
 bool getUp();
 bool rampInfront();
 uint16_t getHeapUsage();
+void triggerPackageThrow(RaspiEvent detection);
 
 #define CALIB_LED 30
 #define MAIN_LED 42
@@ -37,6 +39,21 @@ uint16_t getHeapUsage();
 #define BUTTON2 PIN_A11 // BUTTON_PIN_4
 #define BUTTON3 PIN_A8 // BUTTON_PIN_1
 #define BUTTON4 PIN_A9 // BUTTON_PIN_2
+
+#define BUMPER1 2
+#define BUMPER2 3
+
+// ----------------------------------------------------------------------------------------------------
+// global data:
+
+// mainState is accessed by isrs, so have caution when setting it
+volatile MainStates mainState = MainStates::GET_MOVE;
+bool inBlackTile = false;
+
+// bumper stuff
+uint32_t bumperStartTime = millis();
+
+// ----------------------------------------------------------------------------------------------------
 
 int main() {
     init();
@@ -57,6 +74,15 @@ int main() {
 
     DB_PRINTLN("Start Main!");
 
+    if (!initEverything())
+        mainState = MainStates::REINIT;
+
+    Devices::ledsBottom.fill(0xFF000000);
+    Devices::ledsBottom.show();
+
+    Devices::ledsTop.fill(0x40000000); // (0x40000000);
+    Devices::ledsTop.show();
+
     while (!digitalRead(BUTTON1)) {} // wait until start
     while (digitalRead(BUTTON1)) {} // wait until button unpressed
 
@@ -64,19 +90,15 @@ int main() {
 
     attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
 
+    attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
+    attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
+
     BREAK;
 
     mainFunc();
 
     while (true) {}
 }
-
-// ----------------------------------------------------------------------------------------------------
-// global data:
-
-// mainState is accessed by isrs, so have caution when setting it
-volatile MainStates mainState = MainStates::GET_MOVE;
-bool inBlackTile = false;
 
 // ----------------------------------------------------------------------------------------------------
 
@@ -133,20 +155,11 @@ void mainFunc() {
 
     // camera state stuff
     MainStates mainStateBeforeCamInt = mainState;
-    RaspiEvent detection = RaspiEvent::NONE;
     uint32_t cameraStartTime = millis();
+    uint64_t lastDetectionEncoderVal = 0;
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
-
-    if (!initEverything())
-        mainState = MainStates::REINIT;
-
-    Devices::ledsBottom.fill(0xFF000000);
-    Devices::ledsBottom.show();
-
-    Devices::ledsTop.fill(0xFF000000);
-    Devices::ledsTop.show();
     
     BREAK;
 
@@ -183,6 +196,8 @@ void mainFunc() {
         updateTofs();
         gyro.update();
         Devices::spec.update();
+        Devices::packageHandlerLeft.update();
+        Devices::packageHandlerRight.update();
 
         // blue tile stuff:
         ColorType currSpecType = Devices::spec.getColorId();
@@ -205,24 +220,40 @@ void mainFunc() {
         }
 
         // ----------------------------------------------------------------------------------------------------
+        // get current tile
+        // mapPos pos = mapper.pos;
+
+        // ----------------------------------------------------------------------------------------------------
         // update camera:
 
         RaspiEvent raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
         while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
             raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
 #if USE_NEW_RASPI_COMMS
-            if (raspiEvent >= RaspiEvent::DETECTED_PSI_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RING_SUM_2_LEFT) {
+            if (raspiEvent >= RaspiEvent::DETECTED_PSI_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RING_SUM_2_LEFT
+                    && (getEncoderValueMM() - lastDetectionEncoderVal) >= CAM_DISTANCE_TIMEOUT_MM) {
                 mainStateBeforeCamInt = mainState;
-                detection = raspiEvent;
                 uncondSetMainState(MainStates::CAMERA_DETECTION);
                 cameraStartTime = millis();
+                lastDetectionEncoderVal = getEncoderValueMM();
+                triggerPackageThrow(raspiEvent);
             }
 #else
             if (raspiEvent >= RaspiEvent::DETECTED_H_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RED_LEFT) {
-                mainStateBeforeCamInt = mainState;
-                detection = raspiEvent;
-                uncondSetMainState(MainStates::CAMERA_DETECTION);
-                cameraStartTime = millis();
+                Devices::comms.debugLog(String(F("encoder val: ")) + String(getEncoderValueMM()));
+                Devices::comms.debugLog(String(F("lastDetectionEncoderVal: ")) + String((unsigned long)lastDetectionEncoderVal));
+                VAR_PRINTLN((long)lastDetectionEncoderVal);
+                VAR_PRINTLN(getEncoderValueMM());
+                VAR_PRINTLN(getEncoderValueMM() - lastDetectionEncoderVal);
+                if ((getEncoderValueMM() - lastDetectionEncoderVal) >= CAM_DISTANCE_TIMEOUT_MM) {
+                    Devices::comms.debugLog(F("Detected victim, switching state!"));
+                    DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
+                    mainStateBeforeCamInt = mainState;
+                    uncondSetMainState(MainStates::CAMERA_DETECTION);
+                    cameraStartTime = millis();
+                    lastDetectionEncoderVal = getEncoderValueMM();
+                    triggerPackageThrow(raspiEvent);
+                }
             }
 #endif
         }
@@ -501,7 +532,7 @@ void mainFunc() {
                 break;
             }
 
-            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -1.0);
+            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -0.5);
 
             break;
         }
@@ -538,6 +569,8 @@ void mainFunc() {
             break;
         }
 
+        // ----------------------------------------------------------------------------------------------------
+        // wait in a reset state until it should resume:
         case MainStates::RESET_STATE: {
             // simply do nothing in this sate and wait until the isr gets you out of it
             Devices::motors.setSpeeds(0, 0, 0, 0);
@@ -548,18 +581,41 @@ void mainFunc() {
             break;
         }
 
+        // ----------------------------------------------------------------------------------------------------
+        // exit the reset state and reset back to checkpoint:
         case MainStates::EXIT_RESET_STATE: {
             mapper.resetToLastCheckpoint();
             setMainState(MainStates::GET_MOVE, MainStates::EXIT_RESET_STATE);
             break;
         }
 
+        // ----------------------------------------------------------------------------------------------------
+        // case that is entered if the camera detects something:
         case MainStates::CAMERA_DETECTION: {
             Devices::motors.setSpeeds(0, 0, 0, 0);
             digitalWrite(MAIN_LED, !(((millis() - cameraStartTime) / 500) % 2)); // blink in 500ms intervals 
             if (millis() - cameraStartTime >= 5000) {
                 setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
                 digitalWrite(MAIN_LED, LOW);
+                lastDetectionEncoderVal = getEncoderValueMM();
+            }
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // when the left or right bumper triggers:
+        case MainStates::RIGHT_BUMPER:
+        case MainStates::LEFT_BUMPER: {
+            // because we interrupted a drive and we should subtract the distance from the true Encoder dist, so the drive does not get confused
+            trueEncoderDist -= getEncoderValueMM() - lastEncoderDist;
+            lastEncoderDist = getEncoderValueMM();
+
+            if (Devices::control.driveSCurve(100, 80, bumperStartTime, 500, (mainState == MainStates::RIGHT_BUMPER) ? 1 : -1) == 0) {
+                // go back to the driing state
+                if (mainState == MainStates::RIGHT_BUMPER)
+                    setMainState(MainStates::DRIVE, MainStates::RIGHT_BUMPER);
+                else
+                    setMainState(MainStates::DRIVE, MainStates::LEFT_BUMPER);
             }
             break;
         }
@@ -576,6 +632,13 @@ void mainFunc() {
     }
 
     // TODO: Actions after finishing the maze
+
+    for (uint8_t i = 0; i < 5; i++) {
+        digitalWrite(MAIN_LED, HIGH);
+        delay(1000);
+        digitalWrite(MAIN_LED, LOW);
+        delay(1000);
+    }
     BREAK;
 }
 
@@ -630,8 +693,24 @@ void resetInterrupt() {
     }
 }
 
-void bumperInterrupt() {
-    
+void bumperInterruptRight() {
+    if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
+        return;
+    if (mainState == MainStates::DRIVE) {
+        Devices::motors.setSpeeds(0, 0, 0, 0);
+        mainState = MainStates::RIGHT_BUMPER;
+        bumperStartTime = millis();
+    }
+}
+
+void bumperInterruptLeft() {
+    if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
+        return;
+    if (mainState == MainStates::DRIVE) {
+        Devices::motors.setSpeeds(0, 0, 0, 0);
+        mainState = MainStates::LEFT_BUMPER;
+        bumperStartTime = millis();
+    }
 }
 
 bool isRamp() {
@@ -672,6 +751,41 @@ uint16_t getHeapUsage() {
     if (__brkval == 0)
         return 0;
     return (uint16_t)__brkval - (uint16_t)&__heap_start;
+}
+
+void triggerPackageThrow(RaspiEvent detection) {
+    switch (detection)
+    {
+    case RaspiEvent::NONE:
+    case RaspiEvent::NO_MORE_PACKETS: break;
+#if USE_NEW_RASPI_COMMS
+    case RaspiEvent::DETECTED_PSI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_PHI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_OMEGA_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_0_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_1_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_2_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_PSI_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_PHI_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_OMEGA_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_0_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_1_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_RING_SUM_2_LEFT: Devices::packageHandlerLeft.trigger(2); break; 
+#else
+    case RaspiEvent::DETECTED_H_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_S_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_U_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_H_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_S_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_U_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_GREEN_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_YELLOW_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_RED_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_GREEN_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_YELLOW_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_RED_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+#endif
+    }
 }
 
 #endif

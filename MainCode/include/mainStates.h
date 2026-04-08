@@ -22,7 +22,9 @@ enum MainStates {
     BLUE_TILE_STOP,     // stop in a blue tile
     RESET_STATE,        // simply a paused state caused by an isr and removed by the same isr
     EXIT_RESET_STATE,   // simply a state to exit the RESET_STATE and reset the mapper for example
-    CAMERA_DETECTION    // when the camera detected something
+    CAMERA_DETECTION,   // when the camera detected something
+    RIGHT_BUMPER,       // when the right bumper triggered
+    LEFT_BUMPER         // when the left bumper triggered
 };
 
 #endif

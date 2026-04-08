@@ -2,6 +2,7 @@
 #include <debug.h>
 #include <PosSensors/ToF.h>
 #include <PosSensors/position.h>
+#include <devices.h>
 
 #include <config.h>
 
@@ -9,11 +10,20 @@
 #if CAT(USE_, CURR_MAIN)
 #undef USE_tof_calib
 
+void rgbcSensorOnEnter() {}
+void rgbcSensorOnExit() {}
+
 int main() {
     init();
     sei();
 
     BEGIN_DEBUG(BAUDE_RATE);
+
+    Devices::ledsTop.begin();
+    Devices::ledsTop.fill(0x40000000);
+    Devices::ledsTop.show();
+
+    Wire.begin();
 
     if (!initTofs())
         ERROR("Tof failed to init!");

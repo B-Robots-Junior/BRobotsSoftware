@@ -19,7 +19,7 @@ void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}
 
 #define SERVO1 44
-#define SERVO2 5
+#define SERVO2 13 // war 5, ist jetzt umgelötet
 
 int main() {
     init();

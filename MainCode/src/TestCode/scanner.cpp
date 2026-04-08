@@ -27,9 +27,6 @@ void setup()
 	
 	Serial.begin(BAUDE_RATE);
 
-    initTofs();
-    initgyro();
-
 	while (!Serial) {};
 
 	scanner.Init();
@@ -37,7 +34,6 @@ void setup()
 
 void loop() 
 {
-	0x28;
 	scanner.Scan();
 	delay(5000);
 }

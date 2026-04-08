@@ -242,8 +242,8 @@ void Control::uncondDriveAlong(float targetDist, float target_angle, float speed
     float lfDist = getLFDistance();
     float lbDist = getLBDistance();
     
-    bool rightValid = rfDist < 255 && rfDist > 0 && rbDist < 255 && rbDist > 0 && abs(rfDist - rbDist) < 50;
-    bool leftValid = lfDist < 255 && lfDist > 0 && lbDist < 255 && lbDist > 0 && abs(lfDist - lbDist) < 50; 
+    bool rightValid = getTofRFValid() && getTofRBValid();
+    bool leftValid = getTofLFValid() && getTofLBValid(); 
     
     //if (rightValid && leftValid) {
     //    keepCentered(speedMul);
@@ -273,12 +273,12 @@ int Control::driveAlongEncoders(double targetEncoderVal, float targetDist, float
     float lfDist = getLFDistance();
     float lbDist = getLBDistance();
     
-    bool rightValid = rfDist < 255 && rfDist > 0 && rbDist < 255 && rbDist > 0;
-    bool leftValid = lfDist < 255 && lfDist > 0 && lbDist < 255 && lbDist > 0;
+    bool rightValid = getTofRFValid() && getTofRBValid();
+    bool leftValid = getTofLFValid() && getTofLBValid(); 
     
-    if (rightValid && leftValid) {
-        keepCentered(speedMul);
-    } else if (rightValid || leftValid) {
+    //if (rightValid && leftValid) {
+    //    keepCentered(speedMul);
+    if (rightValid || leftValid) {
         keepHeading(targetDist, speedMul);
     } else {
         keepCenteredgyro(targetAngle, speedMul);

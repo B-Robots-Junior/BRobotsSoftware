@@ -43,7 +43,7 @@ Packet RaspiComms::_recievePacket(uint32_t timeout) {
         return invalidPacket;
     }
     uint32_t start = millis();
-    while (_ser.available() < sizeof(PacketSize)) {
+    while (_ser.available() < (int)sizeof(PacketSize)) {
         if (millis() - start >= timeout) {
             debugLog(F("_recievePacket get size timeout!"));
             return invalidPacket;
@@ -53,7 +53,7 @@ Packet RaspiComms::_recievePacket(uint32_t timeout) {
     _ser.readBytes((uint8_t*)&size, sizeof(PacketSize));
     if (size == 0)
         return Packet(type, 0);
-    while (_ser.available() < size) {
+    while (_ser.available() < (int)size) {
         if (millis() - start >= timeout) {
             debugLog(F("_recievePacket get data timeout!"));
             return invalidPacket;
@@ -108,62 +108,73 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
     switch (packet.type())
     {
     // --------------------------------------------------
-    case PacketType::CAM_RESET:
+    case PacketType::CAM_RESET: {
+        DB_COLOR_PRINTLN(F("CAM_RESET recieved!"), SET_GREEN);
         if (_camState != CameraState::LOOKING) {
             _camState = CameraState::LOOKING;
             return RaspiEvent::CAMERA_INVALID;
         }
         return RaspiEvent::NONE;
+    }
 
     // --------------------------------------------------
-    case PacketType::CAM_DETECT_SIDE:
+    case PacketType::CAM_DETECT_SIDE: {
+        DB_COLOR_PRINTLN(F("CAM_DETECT_SIDE recieved!"), SET_GREEN);
         if (_camState != CameraState::LOOKING) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_DETECT_SIDE out of sequence!"));
+            DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
             _camState = CameraState::LOOKING;
             return RaspiEvent::CAMERA_INVALID;
         }
         if (packet.size() != 1) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_DETECT_SIDE sent invalid data amount, should be 1 byte!"));
+            DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
             _camState = CameraState::LOOKING;
             return RaspiEvent::NONE;
         }
-        VAR_PRINTLN(packet.size());
-        VAR_PRINTLN(packet[0]);
-        if (packet[0] == 1) {
+        if (packet[0] == 0) {
             _camState = CameraState::TRIGGERED_RIGHT;
             uint16_t data = 0;
             ((uint8_t*)&data)[0] = fr;
             ((uint8_t*)&data)[1] = br;
             _sendPacket(PacketType::CAM_TOF_DATA, 2, (uint8_t*)&data);
+            DB_COLOR_PRINTLN(F("CAM_TOF_DATA sent right!"), SET_GREEN);
             return RaspiEvent::CAMERA_TRIGGERED_RIGTH;
         }
-        else if (packet[0] == 0) {
+        else if (packet[0] == 1) {
             _camState = CameraState::TRIGGERED_LEFT;
             uint16_t data = 0;
             ((uint8_t*)&data)[0] = fl;
             ((uint8_t*)&data)[1] = bl;
             _sendPacket(PacketType::CAM_TOF_DATA, 2, (uint8_t*)&data);
+            DB_COLOR_PRINTLN(F("CAM_TOF_DATA sent left!"), SET_GREEN);
             return RaspiEvent::CAMERA_TRIGGERED_LEFT;
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_DETECT_SIDE invalid data!"));
+        DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
         _camState = CameraState::LOOKING;
         return RaspiEvent::NONE;
+    }
 
     // --------------------------------------------------
-    case PacketType::CAM_VICTIM_VALID:
+    case PacketType::CAM_VICTIM_VALID: {
+        DB_COLOR_PRINTLN(F("CAM_VICTIM_VALID recieved!"), SET_GREEN);
         if (_camState != CameraState::TRIGGERED_LEFT && _camState != CameraState::TRIGGERED_RIGHT) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID out of sequence!"));
+            DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
             _camState = CameraState::LOOKING;
             return RaspiEvent::NONE;
         }
         if (packet.size() != 1) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data amount, should be 1 byte!"));
+            DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
             _camState = CameraState::LOOKING;
             return RaspiEvent::CAMERA_INVALID;
         }
-        debugLog(F("got CAM_VICTIM_VALID, successfully!"));
+        //debugLog(F("got CAM_VICTIM_VALID, successfully!"));
         CameraState oldState = _camState;
         _camState = CameraState::LOOKING;
+        debugLog(F("ACK victim!"));
         switch (packet[0]) {
 #if USE_NEW_RASPI_COMMS
         case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_PSI_RIGHT : RaspiEvent::DETECTED_PSI_LEFT;
@@ -182,37 +193,46 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
 #endif
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data!"));
+        DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
         return RaspiEvent::NONE;
+    }
 
     // --------------------------------------------------
-    case PacketType::CAM_VICTIM_INVALID:
+    case PacketType::CAM_VICTIM_INVALID: {
+        DB_COLOR_PRINTLN(F("CAM_VICTIM_INVALID recieved!"), SET_GREEN);
         if (_camState == CameraState::LOOKING)
             return RaspiEvent::NONE;
         _camState = CameraState::LOOKING;
         return RaspiEvent::CAMERA_INVALID;
+    }
 
     // --------------------------------------------------
-    case PacketType::DEBUG_CONSOLE:
+    case PacketType::DEBUG_CONSOLE: {
         return RaspiEvent::NONE;
+    }
 
     // --------------------------------------------------
-    case PacketType::CAM_TOF_DATA:
+    case PacketType::CAM_TOF_DATA: {
         return RaspiEvent::NONE;
+    }
     
     // --------------------------------------------------
-    case PacketType::MAP_TILE:
+    case PacketType::MAP_TILE: {
         return RaspiEvent::NONE;
+    }
     
     // --------------------------------------------------
-    case PacketType::LOCATION:
+    case PacketType::LOCATION: {
         return RaspiEvent::NONE;
+    }
 
     // --------------------------------------------------
-    case PacketType::INVALID:
+    case PacketType::INVALID: {
         return RaspiEvent::NONE;
+    }
     
     // --------------------------------------------------
-    case PacketType::P_VAL:
+    case PacketType::P_VAL: {
         if (packet.size() != 2) {
             _sendPacket(PacketType::DEBUG_CONSOLE, F("P val packet recieved wrong size!"));
             return RaspiEvent::NONE;
@@ -220,9 +240,11 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         EEPROM.write(P_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(P_OFFSET_EEPROM + 1, packet.data()[1]);
         DB_PRINT_MUL((F("Set PID P value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        return RaspiEvent::NONE;
+    }
     
     // --------------------------------------------------
-    case PacketType::I_VAL:
+    case PacketType::I_VAL: {
         if (packet.size() != 2) {
             _sendPacket(PacketType::DEBUG_CONSOLE, F("I val packet recieved wrong size!"));
             return RaspiEvent::NONE;
@@ -230,9 +252,11 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         EEPROM.write(I_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(I_OFFSET_EEPROM + 1, packet.data()[1]);
         DB_PRINT_MUL((F("Set PID I value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        return RaspiEvent::NONE;
+    }
     
     // --------------------------------------------------
-    case PacketType::D_VAL:
+    case PacketType::D_VAL: {
         if (packet.size() != 2) {
             _sendPacket(PacketType::DEBUG_CONSOLE, F("D val packet recieved wrong size!"));
             return RaspiEvent::NONE;
@@ -240,6 +264,8 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         EEPROM.write(D_OFFSET_EEPROM, packet.data()[0]);
         EEPROM.write(D_OFFSET_EEPROM + 1, packet.data()[1]);
         DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
+        return RaspiEvent::NONE;
+    }
     }
 
     return RaspiEvent::NONE;

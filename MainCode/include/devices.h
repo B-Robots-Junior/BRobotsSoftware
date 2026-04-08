@@ -10,6 +10,7 @@
 #include <Drive/Control.h>
 #include <Adafruit_NeoPixel.h>
 #include <pins.h>
+#include <RescueSystem/RescuePackageHandler.h>
 
 void rgbcSensorOnEnter();
 void rgbcSensorOnExit();
@@ -24,6 +25,8 @@ public:
     static Adafruit_NeoPixel ledsBottom;
     static Adafruit_NeoPixel ledsTop;
     static RaspiComms comms;
+    static RescuePackageHandler packageHandlerRight;
+    static RescuePackageHandler packageHandlerLeft;
     // static Display display;
 
     static bool init(); // init all devices

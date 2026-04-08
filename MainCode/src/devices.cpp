@@ -20,6 +20,9 @@ Control Devices::control(Devices::motors);
 
 RaspiComms Devices::comms(Serial1);
 
+RescuePackageHandler Devices::packageHandlerRight(13, 100, -68);
+RescuePackageHandler Devices::packageHandlerLeft(44, 148, -78);
+
 #define CHECK_INIT(x) do { if (!(x)) {worked = false; DB_PRINT_MUL((SET_RED)(F("Init of '"))(F(#x))(F("' in Devices::init Failed!\n"))(RESET_COLOR));}} while (0)
 bool Devices::init() {
     bool worked = true;
@@ -29,6 +32,8 @@ bool Devices::init() {
     CHECK_INIT(ledsTop.begin());
     CHECK_INIT(spec.begin());
     // CHECK_INIT(display.begin());
+    //packageHandlerRight.begin();
+    //packageHandlerLeft.begin();
     Serial1.begin(115200);
     motors.init();
     control.resetPIDs();
