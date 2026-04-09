@@ -21,8 +21,12 @@ int main() {
 
     Devices::motors.setSpeeds(100, 100, 100, 100);
 
+    millis();
+
     uint64_t encoderCount = getEncoderValue();
     while(1) {
+        millis();
+        delay(20);
         DB_PRINT_MUL((CLEAR_SCREEN_AND_HOME)(F("Encoders: "))((unsigned long)getEncoderValue())(F(", Diff: "))(((long)getEncoderValue()) - ((long)encoderCount)));
         if (((long)getEncoderValue()) - ((long)encoderCount) < 0)
             ERROR(F("Encoder diff less than 0!"));

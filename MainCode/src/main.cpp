@@ -83,6 +83,7 @@ int main() {
     Devices::ledsTop.fill(0x40000000); // (0x40000000);
     Devices::ledsTop.show();
 
+    /*
     for (uint8_t type = 0; type < 5; type++) {
         DB_PRINT_MUL((SET_GREEN)(F("Calibrate "))(colorTypeToName[type])('!')(RESET_COLOR)('\n'));
         do { DB_PRINT(SET_BLUE); DB_PRINT(F("Breakpoint in file: ")); DB_PRINT(F(__FILE__)); DB_PRINT(F(" in line: ")); DB_PRINT(__LINE__); DB_PRINTLN(F(" Triggered!")); DB_PRINT(RESET_COLOR); while (!Serial.available()) {} delay(100); while (Serial.available()) { Serial.read(); } } while (0);
@@ -90,6 +91,7 @@ int main() {
         Devices::rgbcSensor.setColor(ColorType(type));
         Devices::spec.setColorCurrent(ColorType(type));
     }
+    */
 
     while (!digitalRead(BUTTON1)) {
         if (getTofLBValid())
@@ -195,7 +197,7 @@ void mainFunc() {
     bool running = true;
     while (running) 
     {
-        // uint64_t loopStart = millis();
+        uint64_t loopStart = millis();
 
         // ----------------------------------------------------------------------------------------------------
         // update all sensors:
@@ -613,7 +615,8 @@ void mainFunc() {
 
         }
 
-        // uint64_t loopDur = millis() - loopStart;
+        uint64_t loopDur = millis() - loopStart;
+        DB_PRINT_MUL((SET_RED)(F("loop time: "))((long)loopDur)(RESET_COLOR)('\n'));
         // saveToEEPROM<uint64_t>(256, readFromEEPROM<uint64_t>(256) + 1); // num loops
         // saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)) + loopDur); // sum durs
         // if (loopDur < readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))
