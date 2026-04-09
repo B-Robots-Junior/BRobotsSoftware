@@ -90,11 +90,10 @@ void Control::keepHeading(float targetDistance, float speedMul) {
     float averageDistance;
     int invertMove = 1;
     
-    // Speichert, an welcher Wand wir im letzten Durchlauf waren (1 = Rechts, -1 = Links)
     static int lastWall = 1; 
 
     // Prüfen, ob beide Wände weg sind
-    if (rightDist > 200 && leftDist > 200) {
+    if (getRFDistance() > 200 && getLFDistance() > 200) {
         int speed = BASE_SPEED_DRIVE * speedMul;
         _motors.setSpeeds(speed, speed, speed, speed);
         // Regler zurücksetzen, falls wir ins Leere fahren, damit er sauber startet, wenn wieder eine Wand kommt
