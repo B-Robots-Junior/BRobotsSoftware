@@ -83,6 +83,14 @@ int main() {
     Devices::ledsTop.fill(0x40000000); // (0x40000000);
     Devices::ledsTop.show();
 
+    for (uint8_t type = 0; type < 5; type++) {
+        DB_PRINT_MUL((SET_GREEN)(F("Calibrate "))(colorTypeToName[type])('!')(RESET_COLOR)('\n'));
+        do { DB_PRINT(SET_BLUE); DB_PRINT(F("Breakpoint in file: ")); DB_PRINT(F(__FILE__)); DB_PRINT(F(" in line: ")); DB_PRINT(__LINE__); DB_PRINTLN(F(" Triggered!")); DB_PRINT(RESET_COLOR); while (!Serial.available()) {} delay(100); while (Serial.available()) { Serial.read(); } } while (0);
+        //Devices::refSensor.calibrate(ColorType(type));
+        Devices::rgbcSensor.setColor(ColorType(type));
+        Devices::spec.setColorCurrent(ColorType(type));
+    }
+
     while (!digitalRead(BUTTON1)) {
         if (getTofLBValid())
             digitalWrite(CALIB_LED, HIGH);
@@ -100,8 +108,8 @@ int main() {
 
     attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
 
-    attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
+    //attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
+    //attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
 
     BREAK;
 
@@ -153,9 +161,9 @@ void mainFunc() {
     // blue tile interrupt data:
     bool inBlueTile = false;
     bool stoppedInTile = false;
-    int64_t blueTileLastEncoderDist = 0;
-    int64_t blueTileTrueEncoderDist = 0;
+    int64_t blueTileLastMillis = millis();
     uint32_t blueTileStopStartTime = 0;
+    uint32_t blueTileToleranceStarTime = 0;
     // the color sensor should check continuously if we are in a blue tile if so it should
     // set the inBlueTile flag correctly and if you enter a blue tile set the blueTileStartEncoderDist
     // so that when the encoder dist is greater than 150 + blueTileStartEncoderDist && !stoppedInTile you can stop for 5 seconds
@@ -173,16 +181,6 @@ void mainFunc() {
     BREAK;
 
     //mapper.panicMode();
-
-    /*
-    for (uint8_t type = 0; type < 5; type++) {
-        DB_PRINT_MUL((SET_GREEN)(F("Calibrate "))(colorTypeToName[type])('!')(RESET_COLOR)('\n'));
-        BREAK;
-        //Devices::refSensor.calibrate(ColorType(type));
-        Devices::rgbcSensor.setColor(ColorType(type));
-        Devices::spec.setColorCurrent(ColorType(type));
-    }
-    */
     
     BREAK;
 
@@ -217,8 +215,7 @@ void mainFunc() {
         if (currSpecType == ColorType::Blue && !inBlueTile) {
             // entered a blue tile, reset flags:
             inBlueTile = true;
-            blueTileLastEncoderDist = getEncoderValueMM();
-            blueTileTrueEncoderDist = 0;
+            blueTileLastMillis = millis();
             stoppedInTile = false;
         } else if (currSpecType != ColorType::Blue && inBlueTile) {
             // exited a blue tile, set flags accordingly
@@ -226,9 +223,8 @@ void mainFunc() {
             stoppedInTile = false;
         }
 
-        if (inBlueTile && blueTileTrueEncoderDist > 300) {
-            blueTileLastEncoderDist = getEncoderValueMM();
-            blueTileTrueEncoderDist = 0;
+        if (inBlueTile && (millis() - blueTileLastMillis) > 1000) {
+            blueTileLastMillis = millis();
             stoppedInTile = false;
         }
 
@@ -357,7 +353,7 @@ void mainFunc() {
 
             // we don't want to count the encoders when turing so we skip the current delta
             if (inBlueTile) {
-                blueTileLastEncoderDist = getEncoderValueMM();
+                blueTileLastMillis = millis();
             }
             
             break;
@@ -446,13 +442,7 @@ void mainFunc() {
                 setMainState(MainStates::BLACK_IR, MainStates::DRIVE);
             }
 
-            // when driving count the current encoder delta
-            if (inBlueTile) {
-                blueTileTrueEncoderDist += (getEncoderValueMM() - blueTileLastEncoderDist);
-                blueTileLastEncoderDist = getEncoderValueMM();
-            }
-
-            if (inBlueTile && !stoppedInTile && blueTileTrueEncoderDist > BLUE_TILE_STOPPING_DIST) {
+            if (inBlueTile && !stoppedInTile && blueTileLastMillis > 100) {
                 Devices::motors.setSpeeds(0, 0, 0, 0);
                 DB_COLOR_PRINTLN(F("Stopping in blue tile!"), SET_BLUE);
                 blueTileStopStartTime = millis();
@@ -498,7 +488,7 @@ void mainFunc() {
             setMainState(MainStates::BLACK_DRIVE, MainStates::BLACK_IR);
             targetDriveAngle = ReadGyroyaw();
 
-            lastEncoderDist = -1; // currently abusing this to add a tolerance
+            blueTileToleranceStarTime = 0;
 
             Devices::control.resetPIDs();
             BREAK_ONLY(
@@ -515,17 +505,13 @@ void mainFunc() {
             // we wan't to subtract the driving out of the black tile if we are on a blue tile, because the driving into the black tile
             // counted and we want to counteract that by subtracting from the true distance so the blue tile isn't counted twice,
             // this is a very nieche edge case that saves us 10s, but easy enough to prevent
-            if (inBlueTile) {
-                blueTileTrueEncoderDist -= (getEncoderValueMM() - blueTileLastEncoderDist);
-                blueTileLastEncoderDist = getEncoderValueMM();
-            }
 
-            if (!inBlackTile && lastEncoderDist == -1) {
+            if (!inBlackTile && blueTileToleranceStarTime == 0) {
                 LACK;
-                lastEncoderDist = getEncoderValueMM();
+                blueTileToleranceStarTime = millis();
             }
             // simply add a bit of toleranz here
-            if (lastEncoderDist != -1 && (getEncoderValueMM() - lastEncoderDist) >= BLACK_TILE_TOL) {
+            if (blueTileToleranceStarTime != 0 && (millis() - blueTileToleranceStarTime) >= 100) {
                 Devices::motors.setSpeeds(0, 0, 0, 0);
                 setMainState(MainStates::BLACK_TURN, MainStates::BLACK_DRIVE);
                 targetTurnAngle = ReadGyroyaw() + 180;
@@ -554,11 +540,6 @@ void mainFunc() {
                 ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
                 turnStartTime = millis();
                 turnTol *= 2; // increase tolerance and try agian.
-            }
-
-            // we don't want to count the encoders when turning because of the black tiles so we skip the current delta
-            if (inBlueTile) {
-                blueTileLastEncoderDist = getEncoderValueMM();
             }
 
             break;
@@ -611,6 +592,11 @@ void mainFunc() {
         // when the left or right bumper triggers:
         case MainStates::RIGHT_BUMPER:
         case MainStates::LEFT_BUMPER: {
+            if (mainState == MainStates::RIGHT_BUMPER)
+                setMainState(MainStates::DRIVE, MainStates::RIGHT_BUMPER);
+            else
+                setMainState(MainStates::DRIVE, MainStates::LEFT_BUMPER);
+            break; // this is just to remove the bumper code, because we don't use it!
             // because we interrupted a drive and we should subtract the distance from the true Encoder dist, so the drive does not get confused
             trueEncoderDist -= getEncoderValueMM() - lastEncoderDist;
             lastEncoderDist = getEncoderValueMM();

@@ -23,8 +23,8 @@
 // tof adjustment values:
 #define TOF_LF_ADJ 5
 #define TOF_LB_ADJ 2
-#define TOF_RF_ADJ -6
-#define TOF_RB_ADJ 19
+#define TOF_RF_ADJ 18 // -6
+#define TOF_RB_ADJ -2
 
 #define TOF_FRONT_ADJ 0
 #define TOF_FRONT_TOP_ADJ -10
