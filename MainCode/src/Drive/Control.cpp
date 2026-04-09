@@ -89,30 +89,52 @@ void Control::keepHeading(float targetDistance, float speedMul) {
     float leftDist = getLeftDistance();
     float averageDistance;
     int invertMove = 1;
+    
+    // Speichert, an welcher Wand wir im letzten Durchlauf waren (1 = Rechts, -1 = Links)
+    static int lastWall = 1; 
 
-    if (rightDist < 200 && rightDist >= 0) {
-        averageDistance = rightDist;
-        invertMove = 1;  // Rechte Wand
-    } else {
-        averageDistance = leftDist;
-        invertMove = -1; // Linke Wand
-    }
-
+    // Prüfen, ob beide Wände weg sind
     if (rightDist > 200 && leftDist > 200) {
         int speed = BASE_SPEED_DRIVE * speedMul;
         _motors.setSpeeds(speed, speed, speed, speed);
+        // Regler zurücksetzen, falls wir ins Leere fahren, damit er sauber startet, wenn wieder eine Wand kommt
+        _pidHeading.reset(); 
         return; 
+    }
+
+    // if (rightDist < 200 && rightDist >= 0) {
+    //     averageDistance = rightDist;
+    //     invertMove = 1;  // Rechte Wand
+    // } else {
+    //     averageDistance = leftDist;
+    //     invertMove = -1; // Linke Wand
+    // } 
+    //Alte erkennung für den Wandwecchsel, neue nimmt nicht den mittelwert sondern prüft die einzelnen tofs bei jeder seite
+
+        if ((getRFDistance() < 200 && getRFDistance() > 0)&& (getRBDistance() < 200 && getRBDistance() > 0)) {
+        averageDistance = rightDist;
+        invertMove = 1;  // Rechte Wand
+    } else if ((getLFDistance() < 200 && getLFDistance() > 0) && (getLBDistance() < 200 && getLBDistance() > 0))
+    {
+      averageDistance = leftDist;
+        invertMove = -1; // Linke Wand
+    }
+
+    // WICHTIG: Wenn die Wand gewechselt wurde, den PID-Regler zwingend zurücksetzen!
+    if (invertMove != lastWall) {
+        _pidHeading.reset();
+        lastWall = invertMove;
     }
 
     float angle = calculateposition() * invertMove * -1;
     float error = (targetDistance - averageDistance) + angle * 0.4;
+    
     float correction = _pidHeading.calculate(error, HEADING_KP, HEADING_KI, HEADING_KD, HEADING_INT_LIMIT);
 
     correction = constrain(correction, -MAX_CORRECTION_DRIVE, MAX_CORRECTION_DRIVE);
 
     int baseSpeed = BASE_SPEED_DRIVE; 
 
-    
     int m1Speed = (baseSpeed - correction * invertMove) * speedMul; // Links
     int m2Speed = (baseSpeed - correction * invertMove) * speedMul; // Links
     
@@ -132,9 +154,9 @@ void Control::keepCenteredgyro(float angle, float speedMul) {
     correction = constrain(correction, -MAX_CORRECTION_DRIVE, MAX_CORRECTION_DRIVE); // 30
 
     int m1Speed = (baseSpeed + correction) * speedMul;  
-    int m2Speed = (baseSpeed - correction) * speedMul;  
-    int m3Speed = (baseSpeed + correction) * speedMul;  
-    int m4Speed = (baseSpeed - correction) * speedMul;  
+    int m2Speed = (baseSpeed +correction) * speedMul;  
+    int m3Speed = (baseSpeed - correction) * speedMul;  
+    int m4Speed = (baseSpeed -correction) * speedMul;  
 
     _motors.setSpeeds(m1Speed, m2Speed, m3Speed, m4Speed);
 }
@@ -245,9 +267,9 @@ void Control::uncondDriveAlong(float targetDist, float target_angle, float speed
     bool rightValid = getTofRFValid() && getTofRBValid();
     bool leftValid = getTofLFValid() && getTofLBValid(); 
     
-    if (rightValid && leftValid) {
-        keepCentered(speedMul);
-    }
+    // if (rightValid && leftValid) {
+    //     keepCentered(speedMul);
+    // }
     if (rightValid || leftValid) {
         keepHeading(targetDist, speedMul);
     }

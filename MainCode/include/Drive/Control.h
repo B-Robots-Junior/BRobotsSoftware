@@ -23,9 +23,9 @@
 #define CENTER_INT_LIMIT 5.0
 #define TARGET_CENTER_WALL_DIST 85.0 // !! in mm 
 
-#define HEADING_KP 3.0
+#define HEADING_KP 2.5
 #define HEADING_KI 0.003
-#define HEADING_KD 9.0
+#define HEADING_KD 1.0
 #define HEADING_INT_LIMIT 5.0
 
 #define GYRO_KP 5.0
