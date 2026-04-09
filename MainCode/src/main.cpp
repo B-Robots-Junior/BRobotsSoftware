@@ -83,8 +83,18 @@ int main() {
     Devices::ledsTop.fill(0x40000000); // (0x40000000);
     Devices::ledsTop.show();
 
-    while (!digitalRead(BUTTON1)) {} // wait until start
-    while (digitalRead(BUTTON1)) {} // wait until button unpressed
+    while (!digitalRead(BUTTON1)) {
+        if (getTofLBValid())
+            digitalWrite(CALIB_LED, HIGH);
+        else
+            digitalWrite(CALIB_LED, LOW);
+    } // wait until start
+    while (digitalRead(BUTTON1)) {
+        if (getTofLBValid())
+            digitalWrite(CALIB_LED, HIGH);
+        else
+            digitalWrite(CALIB_LED, LOW);
+    } // wait until button unpressed
 
     delay(100); // simply that the reset does not trigger accidentally
 
@@ -156,7 +166,6 @@ void mainFunc() {
     // camera state stuff
     MainStates mainStateBeforeCamInt = mainState;
     uint32_t cameraStartTime = millis();
-    uint64_t lastDetectionEncoderVal = 0;
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
@@ -198,6 +207,10 @@ void mainFunc() {
         Devices::spec.update();
         Devices::packageHandlerLeft.update();
         Devices::packageHandlerRight.update();
+        if (getTofLBValid())
+            digitalWrite(CALIB_LED, HIGH);
+        else
+            digitalWrite(CALIB_LED, LOW);
 
         // blue tile stuff:
         ColorType currSpecType = Devices::spec.getColorId();
@@ -235,23 +248,16 @@ void mainFunc() {
                 mainStateBeforeCamInt = mainState;
                 uncondSetMainState(MainStates::CAMERA_DETECTION);
                 cameraStartTime = millis();
-                lastDetectionEncoderVal = getEncoderValueMM();
                 triggerPackageThrow(raspiEvent);
             }
 #else
             if (raspiEvent >= RaspiEvent::DETECTED_H_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RED_LEFT) {
-                Devices::comms.debugLog(String(F("encoder val: ")) + String(getEncoderValueMM()));
-                Devices::comms.debugLog(String(F("lastDetectionEncoderVal: ")) + String((unsigned long)lastDetectionEncoderVal));
-                VAR_PRINTLN((long)lastDetectionEncoderVal);
-                VAR_PRINTLN(getEncoderValueMM());
-                VAR_PRINTLN(getEncoderValueMM() - lastDetectionEncoderVal);
-                if ((getEncoderValueMM() - lastDetectionEncoderVal) >= CAM_DISTANCE_TIMEOUT_MM) {
+                if ((millis() - cameraStartTime) >= 10000) {
                     Devices::comms.debugLog(F("Detected victim, switching state!"));
                     DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
                     mainStateBeforeCamInt = mainState;
                     uncondSetMainState(MainStates::CAMERA_DETECTION);
                     cameraStartTime = millis();
-                    lastDetectionEncoderVal = getEncoderValueMM();
                     triggerPackageThrow(raspiEvent);
                 }
             }
@@ -584,7 +590,7 @@ void mainFunc() {
         // ----------------------------------------------------------------------------------------------------
         // exit the reset state and reset back to checkpoint:
         case MainStates::EXIT_RESET_STATE: {
-            mapper.resetToLastCheckpoint();
+            mapper.resetToLastCheckpoint(wallFront(), wallRight(), wallLeft(), wallBack());
             setMainState(MainStates::GET_MOVE, MainStates::EXIT_RESET_STATE);
             break;
         }
@@ -597,7 +603,6 @@ void mainFunc() {
             if (millis() - cameraStartTime >= 5000) {
                 setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
                 digitalWrite(MAIN_LED, LOW);
-                lastDetectionEncoderVal = getEncoderValueMM();
             }
             break;
         }
@@ -757,7 +762,10 @@ void triggerPackageThrow(RaspiEvent detection) {
     switch (detection)
     {
     case RaspiEvent::NONE:
-    case RaspiEvent::NO_MORE_PACKETS: break;
+    case RaspiEvent::NO_MORE_PACKETS:
+    case RaspiEvent::CAMERA_TRIGGERED_RIGTH:
+    case RaspiEvent::CAMERA_TRIGGERED_LEFT:
+    case RaspiEvent::CAMERA_INVALID: break;
 #if USE_NEW_RASPI_COMMS
     case RaspiEvent::DETECTED_PSI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
     case RaspiEvent::DETECTED_PHI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
@@ -773,16 +781,16 @@ void triggerPackageThrow(RaspiEvent detection) {
     case RaspiEvent::DETECTED_RING_SUM_2_LEFT: Devices::packageHandlerLeft.trigger(2); break; 
 #else
     case RaspiEvent::DETECTED_H_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_S_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_U_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_S_RIGHT: Devices::packageHandlerRight.trigger(1); break;
+    case RaspiEvent::DETECTED_U_RIGHT: break;
     case RaspiEvent::DETECTED_H_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_S_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_U_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_GREEN_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_YELLOW_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_S_LEFT: Devices::packageHandlerLeft.trigger(1); break;
+    case RaspiEvent::DETECTED_U_LEFT: break;
+    case RaspiEvent::DETECTED_GREEN_RIGHT: break;
+    case RaspiEvent::DETECTED_YELLOW_RIGHT: Devices::packageHandlerRight.trigger(1); break;
     case RaspiEvent::DETECTED_RED_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_GREEN_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_YELLOW_LEFT: Devices::packageHandlerLeft.trigger(2); break;
+    case RaspiEvent::DETECTED_GREEN_LEFT: break;
+    case RaspiEvent::DETECTED_YELLOW_LEFT: Devices::packageHandlerLeft.trigger(1); break;
     case RaspiEvent::DETECTED_RED_LEFT: Devices::packageHandlerLeft.trigger(2); break;
 #endif
     }

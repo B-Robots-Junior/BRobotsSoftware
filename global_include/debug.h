@@ -1,8 +1,8 @@
 // set this to true to get a debug output or false to not
 #define DEBUG_MODE true
 // these only matter when in debug mode
-#define DELAYS_ENABLED true
-#define BREAKS_ENABLED true
+#define DELAYS_ENABLED false
+#define BREAKS_ENABLED false
 
 #include <Arduino.h>
 #include <ansiColorCodes.h>

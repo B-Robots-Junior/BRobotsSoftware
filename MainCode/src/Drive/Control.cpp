@@ -105,7 +105,7 @@ void Control::keepHeading(float targetDistance, float speedMul) {
     }
 
     float angle = calculateposition() * invertMove * -1;
-    float error = ((targetDistance - averageDistance) * 0.4) + angle;
+    float error = (targetDistance - averageDistance) + angle * 0.4;
     float correction = _pidHeading.calculate(error, HEADING_KP, HEADING_KI, HEADING_KD, HEADING_INT_LIMIT);
 
     correction = constrain(correction, -MAX_CORRECTION_DRIVE, MAX_CORRECTION_DRIVE);
@@ -245,9 +245,9 @@ void Control::uncondDriveAlong(float targetDist, float target_angle, float speed
     bool rightValid = getTofRFValid() && getTofRBValid();
     bool leftValid = getTofLFValid() && getTofLBValid(); 
     
-    //if (rightValid && leftValid) {
-    //    keepCentered(speedMul);
-    //}
+    if (rightValid && leftValid) {
+        keepCentered(speedMul);
+    }
     if (rightValid || leftValid) {
         keepHeading(targetDist, speedMul);
     }

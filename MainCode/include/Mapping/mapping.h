@@ -27,15 +27,6 @@ public:
     void println() const;
 };
 
-class Action {
-public:
-    Action() {}
-    Action(mapPos pos, uint16_t stepsAway) : pos(pos), stepsAway(stepsAway) {}
-
-    mapPos pos = mapPos(0, 0, 0);
-    uint16_t stepsAway = 0; // the number of steps away from 0, 0, 0 (start pos)
-};
-
 class Mapper {
 private:
     volatile bool _panic = false;
@@ -60,13 +51,10 @@ private:
 
 public:
     Mapper() {
-        _actions.push_back(Action(mapPos(0, 0, 0), 0));
+        _actions.push_back(mapPos(0, 0, 0));
     }
     Mapper(const Mapper& other) = delete;
     Mapper(Mapper&& other) = delete;
-
-    //! only public for debugging purposes
-    FastArray<Action> _actions; //! remove the steps away from start part (pointless)
 
     Map map;
     // 0, 0, 0 is the start pos
@@ -74,17 +62,17 @@ public:
     // an increase of x is the east direction (1)
     // indexing can be negative, it will just increase the size of the map if not indexed before
 
+    FastArray<mapPos> _actions;
+
     mapPos pos = mapPos(0, 0, 0);
     uint8_t rotation = 0; // rotation of the robot 0 is north 1 is east, 2 is south, 3 is west
-
-    uint16_t stepsAwayFromStart = 0; // current steps away from start
 
     SimpleArray<mapPos> allreadySeenVictims; // stores all the positions of all of the allready seen victims so its not activated twice
 
     // actually needed functions from the outside:
     // --------------------------------------------------
-    //! when the robot is reset the starting rotation (north 0) is assumed
-    void resetToLastCheckpoint();
+    //! when the robot is reset the starting rotation (north 0) is assumed, but if the walls do not mach the given direction panicMode is forced
+    void resetToLastCheckpoint(bool fWall, bool rWall, bool lWall, bool bWall);
     // the bools are the walls (from tof measurement) in the current facing direction (used for panic mode)
     Move currMove(bool fWall, bool rWall, bool lWall, bool bWall, bool up, uint8_t type); // returns Move(0, 0) if the entire maze is discovered
     // if the current move leads to a black tile trigger this function instead of completeCurrMove() drive back and turn around

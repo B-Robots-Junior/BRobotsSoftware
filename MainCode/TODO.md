@@ -14,3 +14,5 @@
 14. schauen wieseo er beim rückwärts fahren so schief fährt
 15. bug im camera code fixen, wenn er nicht im debug modus ist
 16. store location for camera detection
+
+!!!!!!!!!!! USE THE NEW VICTIM STORAGE SYSTEM !!!!!!!!!!!!

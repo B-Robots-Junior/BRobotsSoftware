@@ -17,7 +17,7 @@ float nullpunkt_Z = 0.0;
 // right and left were swaped
 // after that back left and back right where swaped
 ShortToF TofLF(43, 0x31);    // was: XSHUT_pin7,Sensor7_newAddress
-ShortToF TofLB(40, 0x42);    // was: XSHUT_pin4,Sensor4_newAddress
+ShortToF TofLB(40, 0x43);    // was: XSHUT_pin4,Sensor4_newAddress
 ShortToF TofRF(37, 0x33);    // was: XSHUT_pin6,Sensor6_newAddress
 ShortToF TofRB(35, 0x34);    // was: XSHUT_pin5,Sensor5_newAddress
 NewLongToF Back(39, 0x35);   // was: XSHUT_pin3,Sensor3_newAddress); // 34
