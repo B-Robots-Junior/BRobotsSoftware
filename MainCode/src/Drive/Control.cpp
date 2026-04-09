@@ -211,7 +211,7 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
 
     if (_driveAlongFailed && targetEncoderDist != -1) {
         // if it is extremely obvious that you should stop in front of the next wall just drive with the front tof
-        if (abs(targetEncoderDist - trueEncoderDist) < 200 && abs(incline) < 12 && getFrontTopDistance() < 200 && speedMul > 0) {
+        if (abs(incline) < 12 && getFrontTopDistance() < 200 && speedMul > 0) { // abs(targetEncoderDist - trueEncoderDist) < 200
             if (getFrontTopDistance() <= wallStoppingDist) {
                 _motors.setSpeeds(0, 0, 0, 0);
                 _driveAlongFailed = false; 
