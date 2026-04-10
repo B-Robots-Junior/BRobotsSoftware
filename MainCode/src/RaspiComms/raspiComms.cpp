@@ -187,9 +187,9 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_H_RIGHT : RaspiEvent::DETECTED_H_LEFT;
         case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_S_RIGHT : RaspiEvent::DETECTED_S_LEFT;
         case 2: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_U_RIGHT : RaspiEvent::DETECTED_U_LEFT;
-        case 3: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_GREEN_RIGHT : RaspiEvent::DETECTED_GREEN_LEFT;
+        case 3: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RED_RIGHT : RaspiEvent::DETECTED_RED_LEFT;
         case 4: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_YELLOW_RIGHT : RaspiEvent::DETECTED_YELLOW_LEFT;
-        case 5: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RED_RIGHT : RaspiEvent::DETECTED_RED_LEFT;
+        case 5: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_GREEN_RIGHT : RaspiEvent::DETECTED_GREEN_LEFT;
 #endif
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data!"));

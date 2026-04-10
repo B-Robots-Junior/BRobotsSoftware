@@ -32,6 +32,7 @@ int main() {
             (F("    left: "))(wallLeft())(F(" right: "))(wallRight())('\n')
             (F("    back: "))(wallBack())('\n')('\n')
         );
+        delay(20);
     }
 }
 

@@ -8,7 +8,7 @@
 #include <PosSensors/ToF.h>
 
 // TOF
-#define TOF_TIMEOUT_VALUE 900
+#define TOF_TIMEOUT_VALUE 800
 
 #ifdef _POSIION_H
     //Adafruit_BNO055 bno = Adafruit_BNO055(55);

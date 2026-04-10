@@ -21,8 +21,6 @@ float getEncoderValueMM() {
 }
 
 uint64_t getEncoderValue() {
-    return 0;
-
     uint16_t tcnt;
     uint32_t overflows;
 

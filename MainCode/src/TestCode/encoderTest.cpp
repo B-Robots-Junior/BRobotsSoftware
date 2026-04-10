@@ -27,6 +27,7 @@ int main() {
         if (((long)getEncoderValue()) - ((long)encoderCount) < 0)
             ERROR(F("Encoder diff less than 0!"));
         encoderCount = getEncoderValue();
+        delay(100);
     }
 }
 

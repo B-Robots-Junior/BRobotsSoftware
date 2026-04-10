@@ -93,13 +93,13 @@ void Control::keepHeading(float targetDistance, float speedMul) {
     static int lastWall = 1; 
 
     // Prüfen, ob beide Wände weg sind
-    if (getRFDistance() > 200 && getLFDistance() > 200) {
-        int speed = BASE_SPEED_DRIVE * speedMul;
-        _motors.setSpeeds(speed, speed, speed, speed);
-        // Regler zurücksetzen, falls wir ins Leere fahren, damit er sauber startet, wenn wieder eine Wand kommt
-        _pidHeading.reset(); 
-        return; 
-    }
+    // if (getRFDistance() > 200 && getLFDistance() > 200) {
+    //     int speed = BASE_SPEED_DRIVE * speedMul;
+    //     _motors.setSpeeds(speed, speed, speed, speed);
+    //     // Regler zurücksetzen, falls wir ins Leere fahren, damit er sauber startet, wenn wieder eine Wand kommt
+    //     _pidHeading.reset(); 
+    //     return; 
+    // }
 
     // if (rightDist < 200 && rightDist >= 0) {
     //     averageDistance = rightDist;
@@ -175,10 +175,12 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
     lastEncoderDist = currEncoderDist;
 
     if (!_driveAlongFailed) {
+        LACK;
         int frontDist = getFrontTopDistance();
         int backDist = getBackDistance();
         
         if (targetBackDist != -1 || targetFrontDist != -1) {
+            LACK;
             if (getFrontTopDistance() < wallStoppingDist && abs(incline) >= 12 && speedMul > 0) {
                 _motors.setSpeeds(0, 0, 0, 0);
                 _driveAlongFailed = false; 
@@ -227,12 +229,14 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
                     return -1; 
                 }
             }
-        }
+        } else {_driveAlongFailed = true;}
     }
 
     if (_driveAlongFailed && targetEncoderDist != -1) {
+        LACK;
         // if it is extremely obvious that you should stop in front of the next wall just drive with the front tof
         if (abs(incline) < 12 && getFrontTopDistance() < 200 && speedMul > 0) { // abs(targetEncoderDist - trueEncoderDist) < 200
+            LACK;
             if (getFrontTopDistance() <= wallStoppingDist) {
                 _motors.setSpeeds(0, 0, 0, 0);
                 _driveAlongFailed = false; 
@@ -273,7 +277,10 @@ void Control::uncondDriveAlong(float targetDist, float target_angle, float speed
         keepHeading(targetDist, speedMul);
     }
     else {
-        keepCenteredgyro(target_angle, speedMul);
+        int speed = BASE_SPEED_DRIVE * speedMul;
+        _motors.setSpeeds(speed, speed, speed, speed);
+        // Regler zurücksetzen, falls wir ins Leere fahren, damit er sauber startet, wenn wieder eine Wand kommt
+        _pidHeading.reset();     
     }
 }
 
@@ -302,10 +309,11 @@ int Control::driveAlongEncoders(double targetEncoderVal, float targetDist, float
     if (rightValid || leftValid) {
         keepHeading(targetDist, speedMul);
     } else {
-        keepCenteredgyro(targetAngle, speedMul);
-    }
-
+        int speed = BASE_SPEED_DRIVE * speedMul;
+        _motors.setSpeeds(speed, speed, speed, speed);
+        _pidHeading.reset();     
     return 1;
+    }
 }
 
 int Control::driveBezier(Pos<float> p0, Pos<float> p1, Pos<float> pa, int baseSpeed, int turnSpeed, uint32_t startTime, uint32_t duration) {
