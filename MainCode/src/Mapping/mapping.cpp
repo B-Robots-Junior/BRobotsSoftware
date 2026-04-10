@@ -1,5 +1,6 @@
 #include <Mapping/mapping.h>
 #include <utility.h>
+#include <devices.h>
 
 const mapPos direcToVec[4] = {mapPos(0, -1, 0), mapPos(1, 0, 0), mapPos(0, 1, 0), mapPos(-1, 0, 0)};
 const uint8_t direcCheckOrder[4] = {0, 3, 1, 2}; // the order in which the next tile to drive on is checked
@@ -236,11 +237,19 @@ void Mapper::discover(TileCon tile, mapPos disPos) {
         tile.type = NORMAL_TILE;
     map.set(disPos, tile);
 
+    DB_PRINT_MUL((tile.north)(F(" "))((tile.east))(F(" "))(tile.south)(F(" "))(tile.west)(F(" "))(tile.type)('\n'));
+    DB_PRINTLN((uint8_t)tile);
+
+    Devices::comms.sendTile(disPos.x, disPos.y, disPos.z, (uint8_t)tile);
+
     if (tile.type == RAMP_TILE) {
         //uint8_t rampDirection = map.getRampDir(disPos);
         bool up = map.getUp(disPos);
         mapPos otherPos = mapPos(disPos.x, disPos.y, disPos.z + (up ? 1 : -1));
         map.set(otherPos, RTC((tile.rampDir + 2) % 4, !tile.up, true, RAMP_TILE)); // setup opposite ramp on the other layer
+
+        Devices::comms.sendTile(otherPos.x, otherPos.y, otherPos.z, RTC((tile.rampDir + 2) % 4, !tile.up, true, RAMP_TILE));
+
         pos = _getLowerRampPos(pos); // can't hurt
     }
 

@@ -5,15 +5,13 @@
 #include <i2cScanner.h>
 #include <Adafruit_NeoPixel.h>
 #include <pins.h>
-#include <Encoders/encoders.h>
 #include <devices.h>
-#include <RescueSystem/RescuePackageHandler.h>
 
 #include <config.h>
 
-#define USE_rescue true
+#define USE_raspi_mapping true
 #if CAT(USE_, CURR_MAIN)
-#undef USE_rescue
+#undef USE_raspi_mapping
 
 void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}
@@ -23,16 +21,13 @@ int main() {
 
     BEGIN_DEBUG(BAUDE_RATE);
 
-    DB_PRINTLN(F("Start"));
-    
-    Devices::init();
-    
-    Devices::packageHandlerRight.trigger(5);
-    Devices::packageHandlerLeft.trigger(5);
+    delay(100);
+
+    Devices::comms.sendTile(0, 0, 0, 0b11010001);
+    Devices::comms.sendTile(0, 1, 0, 0b01110001);
 
     while (true) {
-        Devices::packageHandlerRight.update();
-        Devices::packageHandlerLeft.update();
+        Devices::comms.update(0, 0, 0, 0);
     }
 }
 

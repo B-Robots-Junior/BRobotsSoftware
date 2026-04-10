@@ -86,12 +86,12 @@ void RaspiComms::debugLog(String str) {
     _sendPacket(PacketType::DEBUG_CONSOLE, size, (uint8_t*)str.c_str());
 }
 
-void RaspiComms::sendTile(uint8_t x, uint8_t y, uint8_t z, uint8_t data) {
+void RaspiComms::sendTile(int8_t x, int8_t y, int8_t z, uint8_t data) {
     uint8_t pack_data[4] = {x, y, z, data};
     _sendPacket(PacketType::MAP_TILE, 4, pack_data);
 }
 
-void RaspiComms::sendPos(uint8_t x, uint8_t y, uint8_t z, uint8_t rotation) {
+void RaspiComms::sendPos(int8_t x, int8_t y, int8_t z, uint8_t rotation) {
     uint8_t pack_data[4] = {x, y, z, rotation};
     _sendPacket(PacketType::LOCATION, 4, pack_data);
 }

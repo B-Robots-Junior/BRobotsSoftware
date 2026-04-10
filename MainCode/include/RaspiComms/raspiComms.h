@@ -137,8 +137,8 @@ public:
 
     void debugLog(const __FlashStringHelper* text);
     void debugLog(String str);
-    void sendTile(uint8_t x, uint8_t y, uint8_t z, uint8_t data);
-    void sendPos(uint8_t x, uint8_t y, uint8_t z, uint8_t rotation);
+    void sendTile(int8_t x, int8_t y, int8_t z, uint8_t data);
+    void sendPos(int8_t x, int8_t y, int8_t z, uint8_t rotation);
     RaspiEvent update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl);
 
     RaspiComms& operator=(RaspiComms&& cam) = delete;

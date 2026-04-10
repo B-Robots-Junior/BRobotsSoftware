@@ -22,12 +22,12 @@ int Control::turnRobot(float targetAngle, uint32_t startTime, float tolerance) {
     }
 
     float currentAngle = ReadGyroyaw();
-    float angleDifference = angleDiffDEG(targetAngle, currentAngle);
+    float angleDifference = -angleDiffDEG(targetAngle, currentAngle);
     static unsigned long lastTurnPrint = 0;
     if (millis() - lastTurnPrint > 100) {
-        DB_PRINTLN(F("Ist-Winkel: "));
-        DB_PRINTLN(currentAngle);
-        DB_PRINTLN(F(" | Diff: "));
+        DB_PRINT(F("Ist-Winkel: "));
+        DB_PRINT(currentAngle);
+        DB_PRINT(F(" | Diff: "));
         DB_PRINTLN(angleDifference);
         lastTurnPrint = millis();
     }

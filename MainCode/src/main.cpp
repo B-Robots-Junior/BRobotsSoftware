@@ -10,6 +10,7 @@
 #include <ColorSensors/spectrometer.h>
 #include <util/atomic.h>
 #include <PinChangeInterrupt.h>
+#include <Mapping/mapping.h>
 
 #include <config.h>
 
@@ -197,7 +198,7 @@ void mainFunc() {
     bool running = true;
     while (running) 
     {
-        uint64_t loopStart = millis();
+        //uint64_t loopStart = millis();
 
         // ----------------------------------------------------------------------------------------------------
         // update all sensors:
@@ -326,7 +327,7 @@ void mainFunc() {
             }
 
             LACK;
-            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(-90 * currMove.rotation, calculateposition());
+            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(90 * currMove.rotation, calculateposition());
             VAR_PRINTLN(targetTurnAngle);
             turnStartTime = millis();
             VAR_PRINTLN(turnStartTime);
@@ -615,8 +616,9 @@ void mainFunc() {
 
         }
 
-        uint64_t loopDur = millis() - loopStart;
-        DB_PRINT_MUL((SET_RED)(F("loop time: "))((long)loopDur)(RESET_COLOR)('\n'));
+        //uint64_t loopDur = millis() - loopStart;
+        //DB_PRINT_MUL((SET_RED)(F("loop time: "))((long)loopDur)(RESET_COLOR)('\n'));
+
         // saveToEEPROM<uint64_t>(256, readFromEEPROM<uint64_t>(256) + 1); // num loops
         // saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)) + loopDur); // sum durs
         // if (loopDur < readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))

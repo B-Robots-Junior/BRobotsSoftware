@@ -52,19 +52,19 @@
 
 // tile constructer
 #define TC(n, e, s, w, u, type) ((uint8_t)((\
-    ((n & 1) << NORTH_WALL_BIT) |\
-    ((e & 1) << EAST_WALL_BIT) |\
-    ((s & 1) << SOUTH_WALL_BIT) |\
-    ((w & 1) << WEST_WALL_BIT) |\
-    ((u & 1) << ADJACENT_TILES_BIT) |\
-    ((type & 0b111) << TILE_TYPE_START_BIT)\
+    (((n) & 1) << NORTH_WALL_BIT) |\
+    (((e) & 1) << EAST_WALL_BIT) |\
+    (((s) & 1) << SOUTH_WALL_BIT) |\
+    (((w) & 1) << WEST_WALL_BIT) |\
+    (((u) & 1) << ADJACENT_TILES_BIT) |\
+    (((type) & 0b111) << TILE_TYPE_START_BIT)\
     ) & 0xFF))
 
 #define RTC(dir, up, u, type) ((uint8_t)((\
-    ((dir & 0b11) << RAMP_DIR_START_BIT) |\
-    ((up & 1) << RAMP_UP_BIT) |\
-    ((u & 1) << ADJACENT_TILES_BIT) |\
-    ((type & 0b111) << TILE_TYPE_START_BIT)\
+    (((dir) & 0b11) << RAMP_DIR_START_BIT) |\
+    (((up) & 1) << RAMP_UP_BIT) |\
+    (((u) & 1) << ADJACENT_TILES_BIT) |\
+    (((type) & 0b111) << TILE_TYPE_START_BIT)\
     ) & 0xFF))
 
 typedef Pos3<int8_t> mapPos; //can only go from x: -128 to 128 and y: -128 to 128 if more is needed just change to int16_t
