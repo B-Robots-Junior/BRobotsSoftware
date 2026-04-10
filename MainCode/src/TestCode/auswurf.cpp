@@ -18,6 +18,12 @@ int main() {
 
     BEGIN_DEBUG(BAUDE_RATE);
 
+    Devices::init();
+
+    initEncoders();
+
+    Devices::motors.setSpeeds(100, 100, 100, 100);
+
     Devices::packageHandlerRight.begin();
     Devices::packageHandlerLeft.begin();
 
@@ -27,6 +33,7 @@ int main() {
     while (true) {
         Devices::packageHandlerRight.update();
         Devices::packageHandlerLeft.update();
+        DB_PRINT_MUL((CLEAR_SCREEN_AND_HOME)(getEncoderValueMM()));
     }
 }
 
