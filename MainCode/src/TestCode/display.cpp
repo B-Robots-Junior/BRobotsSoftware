@@ -6,29 +6,32 @@
 #if CAT(USE_, CURR_MAIN)
 #undef USE_display
 
-#include <U8g2lib.h>
+#include <Adafruit_SSD1306.h>
+// pins sind hier drinnen:
+#include <pins.h>
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
 
 void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}
 
-// Full buffer, hardware SPI
-U8G2_SSD1309_128X64_NONAME0_F_4W_HW_SPI display(
-    U8G2_R0,
-    /* cs=*/53,
-    /* dc=*/48,
-    /* reset=*/U8X8_PIN_NONE
-);
-
-void setup() {
+int main() {
+    init();
     BEGIN_DEBUG(BAUDE_RATE);
-    DB_PRINTLN(F("Display Start!"));
-    display.begin();
-}
+    sei();
 
-void loop() {
-    display.clearBuffer();
-    display.drawLine(0, 0, 127, 63);
-    display.sendBuffer();
+    Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, DIS_MOSI_PIN, DIS_SCLK_PIN, DIS_DC_PIN, DIS_RST_PIN, DIS_CS_PIN);
+
+    if (!display.begin(SSD1306_SWITCHCAPVCC))
+        ERROR(F("Could not begin display!"));
+
+    display.clearDisplay();
+    display.drawLine(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, SSD1306_WHITE);
+    display.drawLine(0, SCREEN_HEIGHT, SCREEN_WIDTH, 0, SSD1306_WHITE);
+    display.display();
+
+    while (1) {}
 }
 
 #endif

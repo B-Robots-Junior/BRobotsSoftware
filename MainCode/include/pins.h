@@ -8,7 +8,7 @@
 #define DIS_MOSI_PIN    51 
 #define DIS_SCLK_PIN    52 
 #define DIS_DC_PIN      48 
-#define DIS_RST_PIN     -1 
+#define DIS_RST_PIN     31
 #define DIS_CS_PIN      49
 
 // --------------------------------------------------
