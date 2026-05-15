@@ -8,6 +8,7 @@
 #define PANIC_RETURN_DEFAULT(default_val) do { if (_panic) return (default_val); } while (0)
 #define PANIC_RETURN_VOID() do { if (_panic) return; } while (0)
 
+extern const uint8_t tileWeights[6];
 extern const mapPos direcToVec[4];
 uint8_t vecToDirec(mapPos vec);
 extern const uint8_t direcCheckOrder[4]; // the order in which the next tile to drive on is checked
@@ -28,28 +29,93 @@ public:
 };
 
 class Mapper {
-private:
+public: //! temporary for testing !SET THIS TO PRIVATE!
     volatile bool _panic = false;
 
     FastArray<mapPos> _actions;
 
-    SimpleArray<Move> _currMoves = SimpleArray<Move>(Move(0, 0));
-    uint16_t _currMoveIndex = 1;
-    Move _panicMove = Move(0, 0);
+    mapPos _targetPosition = mapPos(0, 0, 0);
+    bool _gotTarget = true;
+    Move _currentMove = Move(0, 0);
+    bool _gotMove = false;
     uint8_t _currMoveMode = 0; // 0 is normal, 1 is returning to start, 2 is finished
+    bool _inited = false;
+
+    Move _panicMove = Move(0, 0);
 
     uint16_t _lastCheckpointActionIndex = 0; // action index of the last checkpoint driven over
 
+    class NeighbourIterator {
+    public:
+        NeighbourIterator(uint8_t data, mapPos pos)
+            : _rotation(4), _data(data), _pos(pos) {}
+
+        bool next() {
+            if (_GET_TYPE(_data) == RAMP_TILE) {
+                if (_rotation == 4) {
+                    _rotation = 0;
+                    return true;
+                }
+                if (_rotation == 0) {
+                    _rotation = 1;
+                    return true;
+                }
+                _rotation = 4;
+                return false;
+            }
+
+            if (_rotation == 4)
+                _rotation = 0;
+            else
+                ++_rotation;
+
+            while (_rotation < 4 && ((_data >> _rotation) & 1))
+                ++_rotation;
+
+            if (_rotation >= 4) {
+                _rotation = 4;
+                return false;
+            }
+            return true;
+        }
+
+        mapPos get() const {
+            if (_rotation >= 4)
+                return mapPos(0, 0, 0);
+
+            if (_GET_TYPE(_data) == RAMP_TILE) {
+                if (_rotation == 0)
+                    return _pos + direcToVec[_GET_DIR(_data)] + mapPos(0, 0, _GET_UP(_data) ? 1 : -1);
+                return _pos + direcToVec[(_GET_DIR(_data) + 2) % 4];
+            }
+
+            return _pos + direcToVec[_rotation];
+        }
+
+        uint8_t getDirec() const {
+            if (_rotation >= 4)
+                return 4;
+
+            if (_GET_TYPE(_data) == RAMP_TILE)
+                return (_rotation == 0) ? _GET_DIR(_data) : ((_GET_DIR(_data) + 2) % 4);
+
+            return _rotation;
+        }
+
+        bool isEnd() const { return _rotation >= 4; }
+
+        NeighbourIterator& operator++() { next(); return *this; }
+        mapPos operator*() const { return get(); }
+
+    private:
+        uint8_t _rotation;
+        uint8_t _data;
+        mapPos _pos;
+    };
+
     void _updateAdjTiles(mapPos updPos);
-
-    SimpleArray<mapPos> _getNeighbours(mapPos tilePos);
-
-    SimpleArray<uint16_t> _getAllStepsAway(mapPos pos);
-    Move _nextBestMoveTo(const SimpleArray<uint16_t>& endPosStepsAway, mapPos pos, uint8_t currRotation);
-    uint16_t _minDistance(const SimpleArray<uint16_t>& stepsAwayA, const SimpleArray<uint16_t>& stepsAwayB);
-
-    uint8_t _getUndiscAdjTileDirec(mapPos checkPos, uint8_t currentDirec);
     mapPos _getLowerRampPos(mapPos checkPos);
+    uint8_t _getUndiscoveredTileDeltaRot(mapPos currPos, uint8_t currRot);
 
 public:
     Mapper() {
@@ -100,9 +166,8 @@ public:
     void driveMove(Move move);
     void driveMoves(const SimpleArray<Move>& moves);
 
-    uint8_t goTo(mapPos endPos, mapPos startPos, SimpleArray<Move>* array, uint8_t startRotation); // works the same as the goTo below
-    uint8_t goTo(mapPos endPos, SimpleArray<Move>* array); // array is the array it should append the movement and the return is the ending direction
-    SimpleArray<Move> getNextMove(); // is it returns an empty array the entire maze was discovered
+    mapPos getNextTarget(); // returns 0, 0, 0 if the entire maze was discovered
+    Move nextBestMoveTo(mapPos endPos);
 
     mapPos _getDriveInDirec(mapPos currPos, uint8_t currDirec); // this does not consider walls, but does consider ramps
 

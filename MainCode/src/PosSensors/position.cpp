@@ -255,11 +255,11 @@ bool wallBack() {
 bool wallRight() {
     if (!getTofRBValid() && !getTofRFValid())
         return false;
-    return getRightDistance() <= (300 - ROBOT_WIDTH_MM + WALL_DETECT_EXTRA);
+    return getRightDistance() <= 100;
 }
 
 bool wallLeft() {
     if (!getTofLBValid() && !getTofLFValid())
         return false;
-    return getLeftDistance() <= (300 - ROBOT_WIDTH_MM + WALL_DETECT_EXTRA);
+    return getLeftDistance() <= 100;
 }

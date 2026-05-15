@@ -1,6 +1,14 @@
 #include <mapping.h>
 #include <utility.h>
 
+const uint8_t tileWeights[6] = {
+    0, // undiscovered tile (should not come up)
+    1, // normal tile
+    100, // blue tile (avoid if possible)
+    0, // black tile (should not come up)
+    1, // ramp
+    1 // checkpoint
+};
 const mapPos direcToVec[4] = {mapPos(0, -1, 0), mapPos(1, 0, 0), mapPos(0, 1, 0), mapPos(-1, 0, 0)};
 const uint8_t direcCheckOrder[4] = {0, 3, 1, 2}; // the order in which the next tile to drive on is checked
 const uint8_t direcCheckPriority[4] = {0, 2, 3, 1}; // index is the direction and the value is the priority (exactly the reverse of direcCheckOrder)
@@ -114,8 +122,11 @@ void Mapper::resetToLastCheckpoint(bool fWall, bool rWall, bool lWall, bool bWal
     if (bWall != _GET_SOUTH(data)) { panicMode(); return; }
     if (lWall != _GET_WEST(data)) { panicMode(); return; }
 
-    _currMoves = getNextMove();
-    _currMoveIndex = 0;
+    _targetPosition = mapPos(0, 0, 0);
+    _gotTarget = false;
+    _currentMove = Move(0, 0);
+    _gotMove = false;
+    _currMoveMode = 0;
 }
 
 Move Mapper::currMove(bool fWall, bool rWall, bool lWall, bool bWall, bool up, uint8_t type) {
@@ -137,45 +148,88 @@ Move Mapper::currMove(bool fWall, bool rWall, bool lWall, bool bWall, bool up, u
         return _panicMove;
     }
 
+    if (!_inited) {
+        discover(fWall, lWall, rWall, bWall, up, type);
+        _inited = true;
+    }
+
     // just in case this function is called after the first Move(0, 0)
     if (_currMoveMode == 2)
         return Move(0, 0);
 
-    if (_currMoveIndex >= _currMoves.size()) {
-        // if state is 1 then the robot has found its way back
-        if (_currMoveMode == 1) {
-            _currMoveMode = 2;
-            return Move(0, 0); // return this to indicate successfull completion of the maze
+    if (!_gotMove) {
+        LACK;
+        if (pos == _targetPosition && _gotTarget) {
+            // we reached the target and now we need to drive into the undiscovered tile
+            LACK;
+            if (_currMoveMode == 1) {
+                LACK;
+                _currMoveMode = 2;
+                return Move(0, 0);
+            }
+            _gotTarget = false;
+            _gotMove = true;
+            _currentMove = Move(_getUndiscoveredTileDeltaRot(pos, rotation), 1);
+            PANIC_RETURN_DEFAULT(currMove(fWall, rWall, lWall, bWall, up, type));
+            // return so that it doesn't yet find a new target, but instead drives this move first
+            return _currentMove;
         }
-        discover(fWall, lWall, rWall, bWall, up, type);
-        _currMoves = getNextMove();
+        if (!_gotTarget) {
+            LACK;
+            if (_currMoveMode == 1) {
+                LACK;
+                _currMoveMode = 2;
+                return Move(0, 0);
+            }
+
+            discover(fWall, lWall, rWall, bWall, up, type);
+
+            LACK;
+            _targetPosition = getNextTarget();
+            if (_targetPosition == pos) {
+                LACK;
+                _gotMove = true;
+                _currentMove = Move(_getUndiscoveredTileDeltaRot(pos, rotation), 1);
+                PANIC_RETURN_DEFAULT(currMove(fWall, rWall, lWall, bWall, up, type));
+                return _currentMove;
+            }
+            VAR_FUNC_PRINTLN(_targetPosition);
+            LACK;
+            _gotTarget = true;
+            if (_targetPosition == mapPos(0, 0, 0) && !map.getAdj(_targetPosition)) { // if 0, 0, 0 has adjacent tiles it shoul not be counted
+                LACK;
+                _currMoveMode = 1;
+            }
+            LACK;
+        }
+
+        _currentMove = nextBestMoveTo(_targetPosition);
+        LACK;
         PANIC_RETURN_DEFAULT(currMove(fWall, rWall, lWall, bWall, up, type));
-        _currMoveIndex = 0;
+        _gotMove = true;
     }
 
-    // if getNextMove sais there is nothing left, and I need something go back to start
-    if (_currMoves.size() == 0 && _currMoveMode == 0) {
-        goTo(mapPos(0, 0, 0), &_currMoves); // get the way back to start
-        PANIC_RETURN_DEFAULT(currMove(fWall, rWall, lWall, bWall, up, type));
-        if (_currMoves.size() == 0)
-            return Move(0, 0);
-        _currMoveIndex = 0;
-        _currMoveMode = 1; // set state to returning to start
-    }
-    
-    return _currMoves[_currMoveIndex];
+    return _currentMove;
 }
 
 
 void Mapper::currMoveBlackTile(bool fWall, bool rWall, bool lWall, bool bWall) {
-    PANIC_RETURN_VOID();
-    driveMove(_currMoves[_currMoveIndex]);
-    discover(fWall, lWall, rWall, bWall, false, BLACK_TILE);
-    if (_panic)
+    if (_panic) {
+        _panicMove = Move(0, 0);
         return;
+    }
+    if (!_gotMove) {
+        ERROR_MINOR(F("Trying to complete a move that is not given!"), SET_RED);
+        return;
+    }
+    driveMove(_currentMove);
+    discover(fWall, lWall, rWall, bWall, false, BLACK_TILE);
+    if (_panic) {
+        _panicMove = Move(0, 0);
+        return;
+    }
     driveMove(Move(2, 1));
-    _currMoves = getNextMove();
-    _currMoveIndex = 0;
+    _gotMove = false;
 }
 
 void Mapper::completeCurrMove() {
@@ -183,12 +237,12 @@ void Mapper::completeCurrMove() {
         _panicMove = Move(0, 0);
         return;
     }
-    if (_currMoveIndex >= _currMoves.size()) {
+    if (!_gotMove) {
         ERROR_MINOR(F("Trying to complete a move that is not given!"), SET_RED);
         return;
     }
-    driveMove(_currMoves[_currMoveIndex]);
-    _currMoveIndex++;
+    driveMove(_currentMove);
+    _gotMove = false;
 }
 
 bool Mapper::hasAllreadySeenVictim(mapPos pos) {
@@ -241,6 +295,10 @@ void Mapper::discover(TileCon tile, mapPos disPos) {
         bool up = map.getUp(disPos);
         mapPos otherPos = mapPos(disPos.x, disPos.y, disPos.z + (up ? 1 : -1));
         map.set(otherPos, RTC((tile.rampDir + 2) % 4, !tile.up, true, RAMP_TILE)); // setup opposite ramp on the other layer
+        if (!up) { // if a top ramp tile is discovered then you know that at least one action is pointing to a wrong value
+            for (uint16_t i = 0; i < _actions.size(); i++) // correct all action positions
+                _actions[i] = _getLowerRampPos(_actions[i]);
+        }
         pos = _getLowerRampPos(pos); // can't hurt
     }
 
@@ -248,10 +306,10 @@ void Mapper::discover(TileCon tile, mapPos disPos) {
     _updateAdjTiles(disPos);
     PANIC_RETURN_VOID();
     // update for all adjacent tiles
-    SimpleArray<mapPos> updates = _getNeighbours(disPos);
+    NeighbourIterator iter(map.get(disPos), disPos);
     PANIC_RETURN_VOID();
-    for (uint16_t i = 0; i < updates.size(); i++) {
-        _updateAdjTiles(updates[i]);
+    while (iter.next()) {
+        _updateAdjTiles(iter.get());
         PANIC_RETURN_VOID();
     }
     if (PanikFlags::getInstance().outOfRam()) {
@@ -333,113 +391,107 @@ void Mapper::driveMoves(const SimpleArray<Move>& moves) {
     }
 }
 
-uint8_t Mapper::goTo(mapPos endPos, mapPos startPos, SimpleArray<Move>* array, uint8_t startRotation) {
-    PANIC_RETURN_DEFAULT(startRotation);
+mapPos Mapper::getNextTarget() {
+    PANIC_RETURN_DEFAULT(mapPos(0, 0, 0));
 
-    mapPos currPos = startPos;
-    uint8_t currRotation = startRotation;
-    SimpleArray<uint16_t> endStepsAway = _getAllStepsAway(endPos);
-    PANIC_RETURN_DEFAULT(startRotation);
-    while (!(currPos == endPos))
-    {
-        Move thisMove = _nextBestMoveTo(endStepsAway, currPos, currRotation);
-        PANIC_RETURN_DEFAULT(startRotation);
-        if (thisMove.rotation == 0 && array->size() != 0)
-            (*array)[array->size() - 1].distance++;
-        else {
-            Move splitMove = thisMove;
-            if (abs(thisMove.rotation) == 2) {
-                array->push_back(Move(1, 0));
-                if (PanikFlags::getInstance().outOfRam()) {
-                    panicMode();
-                    return startRotation;
-                }
-                splitMove.rotation = 1;
-            }
-            array->push_back(splitMove);
-            if (PanikFlags::getInstance().outOfRam()) {
-                panicMode();
-                return startRotation;
-            }
-        }
-        currRotation = wrap(currRotation + thisMove.rotation, 0, 4);
-        for (uint8_t move = 0; move < thisMove.distance; move++)
-            currPos = _getDriveInDirec(currPos, currRotation);
-    }
-    return currRotation;
-}
+    DB_PRINTLN(F("getNextTarget function call:"));
 
-uint8_t Mapper::goTo(mapPos endPos, SimpleArray<Move>* array) {
-    uint8_t rot = goTo(endPos, pos, array, rotation);
-    PANIC_RETURN_DEFAULT(5);
-    return rot;
-}
-
-SimpleArray<Move> Mapper::getNextMove() {
-    PANIC_RETURN_DEFAULT(SimpleArray<Move>());
-    DB_PRINT_MUL((SET_GREEN)(F("Started getNextMove\n"))(RESET_COLOR));
-    
-    // this is a bit of a nitpick, but it would be more efficient to get all occourences of the current tile your on
-    // and then search the neighbouring indexes or to be a bit more efficient, but more comliated use a Breadth-First Search
-    VAR_PRINTLN(_actions.size());
     for (int32_t i = (int32_t)_actions.size() - 1; i >= 0; i--) {
         mapPos currAction = _actions[i];
-        DB_PRINT_MUL((F("Checking "))(i)(F(" ("))(currAction.x)(F(", "))(currAction.y)(F(", "))(currAction.z)(F(")\n")));
+        DB_PRINT_MUL((F("  Checking _actions["))(i)(F("] ("))(currAction.x)(F(", "))(currAction.y)(F(", "))(currAction.z)(F(")\n")));
         if (map.getAdj(currAction) == false)
             continue;
         if (map.getType(currAction) == BLACK_TILE)
             continue; // cannot go to a black tile
-
-        DB_PRINT_MUL((F("currAction: ("))(currAction.x)(", ")(currAction.y)(", ")(currAction.z)(")\n"));
-
-        SimpleArray<Move> moves;
-        currAction = _getLowerRampPos(currAction);
-        uint8_t endRoation = goTo(currAction, &moves);
-        VAR_PRINTLN(endRoation);
-        VAR_PRINTLN(moves.size());
-        PANIC_RETURN_DEFAULT(SimpleArray<Move>());
-
-        uint8_t undiscoveredAdjTileDirec = _getUndiscAdjTileDirec(currAction, endRoation);
-        VAR_PRINTLN(undiscoveredAdjTileDirec);
-        if (_panic) {
-            //ERROR("current tile has been marked as having adj. undisc. tiles, but turned out to have none check tile updating!");
-            ERROR_MINOR(F("current tile has been marked as having adj. undisc. tiles, but turned out to have none check tile updating!"), SET_RED);
-            return SimpleArray<Move>();
-        }
-
-        int8_t moveRotation = deltaRotation(endRoation, undiscoveredAdjTileDirec);
-        VAR_PRINTLN(moveRotation);
-        PANIC_RETURN_DEFAULT(SimpleArray<Move>());
-        if (moveRotation == 0 && moves.size() != 0)
-            moves[moves.size() - 1].distance++;
-        else {
-            if (moveRotation == 2) { // this case is to give time for the Camera to detect victims
-                moves.push_back(Move(1, 0));
-                moves.push_back(Move(1, 1));
-                if (PanikFlags::getInstance().outOfRam()) {
-                    panicMode();
-                    return SimpleArray<Move>();
-                }
-            }
-            else {
-                moves.push_back(Move(moveRotation, 1));
-                if (PanikFlags::getInstance().outOfRam()) {
-                    panicMode();
-                    return SimpleArray<Move>();
-                }
-            }
-        }
-        DB_PRINT_MUL((SET_GREEN)(F("End getNextMove\n"))(RESET_COLOR));
-        return moves;
+        return currAction;
     }
-    return SimpleArray<Move>();
+    return mapPos(0, 0, 0);
+}
+
+Move Mapper::nextBestMoveTo(mapPos endPos) {
+    PANIC_RETURN_DEFAULT(Move(0, 0));
+    if (endPos == pos)
+        return Move(0, 0);
+
+    DB_PRINTLN(F("nextBestMoveTo function call:"));
+
+    DB_PRINT(F("  "));
+    VAR_FUNC_PRINTLN(endPos);
+
+    NeighbourIterator iter(map.get(pos), pos);
+
+    uint16_t minScore = 0xFFFF;
+    uint8_t minDir = 4;
+
+    while (iter.next()) {
+        mapPos next = _getLowerRampPos(iter.get()); // top ramp poses won't be in the action list
+        if (map.getType(next) == BLACK_TILE) // if its black we can't drive on it ovoiusly (this can create an inf. loop)
+            continue;
+        DB_PRINT(F("  "));
+        VAR_FUNC_PRINTLN(next);
+        if (next == endPos) {
+            minScore = 0;
+            minDir = iter.getDirec();
+            break;
+        }
+        for (uint16_t i = 0; i < _actions.size(); i++) {
+            if (_actions[i] != next) 
+                continue;
+            DB_PRINT(F("    "));
+            VAR_PRINTLN(i);
+            bool reachedTop = false;
+            uint16_t topScore = 0;
+            bool reachedBottom = false;
+            uint16_t bottomScore = 0;
+            for (uint16_t o = 1; !reachedTop || !reachedBottom; o++) {
+                uint16_t topIndex = i + o;
+                int32_t bottomIndex = static_cast<int32_t>(i) - o;
+                if (topIndex < _actions.size() && !reachedTop) {
+                    if (_actions[topIndex] == endPos)
+                        reachedTop = true;
+                    else
+                        topScore += tileWeights[map.getType(_actions[topIndex])];
+                }
+                if (bottomIndex >= 0 && !reachedBottom) {
+                    if (_actions[bottomIndex] == endPos)
+                        reachedBottom = true;
+                    else
+                        bottomScore += tileWeights[map.getType(_actions[bottomIndex])];
+                }
+                if (topIndex >= _actions.size() && bottomIndex < 0)
+                    break;
+            }
+            DB_PRINT(F("    "));
+            VAR_PRINTLN(reachedTop);
+            DB_PRINT(F("    "));
+            VAR_PRINTLN(topScore);
+            DB_PRINT(F("    "));
+            VAR_PRINTLN(reachedBottom);
+            DB_PRINT(F("    "));
+            VAR_PRINTLN(bottomScore);
+            if (reachedTop && topScore < minScore) {
+                minScore = topScore;
+                minDir = iter.getDirec();
+            }
+            if (reachedBottom && bottomScore < minScore) {
+                minScore = bottomScore;
+                minDir = iter.getDirec();
+            }
+        }
+    }
+
+    if (minDir == 4) {
+        ERROR_MINOR(F("Could not find the next best move!"), SET_RED);
+        panicMode();
+        return Move(0, 0);
+    }
+
+    return Move(deltaRotation(rotation, minDir), 1);
 }
 
 // --------------------------------------------------
 // private methods
 // --------------------------------------------------
-
-// private methods are not edited for panic mode!
 
 mapPos Mapper::_getDriveInDirec(mapPos currPos, uint8_t currDirec) {
     PANIC_RETURN_DEFAULT(currPos + direcToVec[currDirec]);
@@ -458,157 +510,20 @@ void Mapper::_updateAdjTiles(mapPos updPos) {
         return;
     bool hasAdjUndiscoveredTiles = false;
     updPos = _getLowerRampPos(updPos);
-    SimpleArray<mapPos> neighbours = _getNeighbours(updPos);
-    PANIC_RETURN_VOID();
-    for (uint16_t i = 0; i < neighbours.size(); i++) {
-        if (map.getType(neighbours[i]) != UNDISCOVERED_TILE)
+    NeighbourIterator iter(map.get(updPos), updPos);
+    while (iter.next()) {
+        if (map.getType(iter.get()) != UNDISCOVERED_TILE)
             continue;
         hasAdjUndiscoveredTiles = true;
         break;
     }
     map.setAdj(updPos, hasAdjUndiscoveredTiles);
     if (map.getType(updPos) == RAMP_TILE) // update linked ramps to the same value
-        map.setAdj(mapPos(updPos.x, updPos.y, updPos.z + 1), hasAdjUndiscoveredTiles);
+        map.setAdj(mapPos(updPos.x, updPos.y, updPos.z + (map.getUp(updPos) ? 1 : -1)), hasAdjUndiscoveredTiles);
     if (PanikFlags::getInstance().outOfRam()) {
         panicMode();
         return;
     }
-}
-
-SimpleArray<mapPos> Mapper::_getNeighbours(mapPos tilePos) {
-    PANIC_RETURN_DEFAULT(SimpleArray<mapPos>());
-    SimpleArray<mapPos> neighbours;
-    tilePos = _getLowerRampPos(tilePos); // ensure on lower ramp
-    if (map.getType(tilePos) == RAMP_TILE) {
-        uint8_t rampDirec = map.getRampDir(tilePos);
-        mapPos upPos = tilePos + direcToVec[rampDirec];
-        upPos.z += 1;
-        neighbours.push_back(upPos);
-        neighbours.push_back(tilePos + direcToVec[(rampDirec + 2) % 4]);
-        if (PanikFlags::getInstance().outOfRam()) {
-            panicMode();
-            return SimpleArray<mapPos>();
-        }
-        return neighbours;
-    }
-    for (uint8_t direc = 0; direc < 4; direc++) {
-        if (map.getWall(tilePos, direc))
-            continue;
-        neighbours.push_back(tilePos + direcToVec[direc]);
-        if (PanikFlags::getInstance().outOfRam()) {
-            panicMode();
-            return SimpleArray<mapPos>();
-        }
-    }
-    return neighbours;
-}
-
-SimpleArray<uint16_t> Mapper::_getAllStepsAway(mapPos pos) {
-    PANIC_RETURN_DEFAULT(SimpleArray<uint16_t>());
-    pos = _getLowerRampPos(pos);
-    SimpleArray<uint16_t> stepsAway;
-    for (uint16_t i = 0; i < _actions.size(); i++) {
-        mapPos currAction = _actions[i];
-        currAction = _getLowerRampPos(currAction); //! CHECK IF THIS DOESN'T CAUSE MASSIVE TIME LOSS
-        _actions[i] = currAction;
-        // because looking up the type and upadting it for each move is a bit accessive, but sometimes not really because its usefull
-        if (currAction == pos)
-            stepsAway.push_back(i);
-    }
-    if (PanikFlags::getInstance().outOfRam()) {
-        panicMode();
-        return SimpleArray<uint16_t>();
-    }
-    return stepsAway;
-}
-
-Move Mapper::_nextBestMoveTo(const SimpleArray<uint16_t>& endPosStepsAway, mapPos currPos, uint8_t currRotation) {
-    PANIC_RETURN_DEFAULT(Move(0, 0));
-    uint16_t minDist = 0xFFFF;
-    SimpleArray<mapPos> neighbours = _getNeighbours(currPos);
-    PANIC_RETURN_DEFAULT(Move(0, 0));
-    uint16_t minIndex = neighbours.size();
-    for (uint16_t i = 0; i < neighbours.size(); i++) {
-        if (map.getType(neighbours[i]) == BLACK_TILE)
-            continue; // basically the same thing as a wall
-        uint16_t currDist = _minDistance(endPosStepsAway, _getAllStepsAway(neighbours[i]));
-        PANIC_RETURN_DEFAULT(Move(0, 0));
-        if (currDist < minDist) {
-            minDist = currDist;
-            minIndex = i;
-        }
-    }
-    if (minIndex == neighbours.size()) {
-        //ERROR("min direction couldn't be found (should be impossible)!");
-        ERROR_MINOR(F("min direction couldn't be found (should be impossible)!"), SET_RED);
-        panicMode();
-        return Move(0, 0);
-    }
-    if (PanikFlags::getInstance().outOfRam()) {
-        panicMode();
-        return Move(0, 0);
-    }
-    // no need to think about ramps, because vecToDirec sets the z value to 0 automatically
-    uint8_t dir = vecToDirec(neighbours[minIndex] - currPos);
-    if (dir == 5) {
-        ERROR_MINOR(F("vecToDirec returned invalid value 5!"), SET_RED);
-        panicMode();
-        return Move(0, 0);
-    }
-    return Move(deltaRotation(currRotation, dir), 1);
-}
-
-uint16_t Mapper::_minDistance(const SimpleArray<uint16_t>& stepsAwayA, const SimpleArray<uint16_t>& stepsAwayB) {
-    PANIC_RETURN_DEFAULT(0xFFFF);
-    if (PanikFlags::getInstance().outOfRam()) {
-        panicMode();
-        return 0xFFFF;
-    }
-    uint16_t minDist = 0xFFFF;
-    for (uint16_t i = 0; i < stepsAwayA.size(); i++) {
-        for (uint16_t j = 0; j < stepsAwayB.size(); j++) {
-            uint16_t dist = (stepsAwayA[i] > stepsAwayB[j]) ? 
-                 (stepsAwayA[i] - stepsAwayB[j]) : 
-                 (stepsAwayB[j] - stepsAwayA[i]);
-            if (dist < minDist)
-                minDist = dist;
-        }
-    }
-    return minDist;
-}
-
-uint8_t Mapper::_getUndiscAdjTileDirec(mapPos checkPos, uint8_t currentDirec) {
-    PANIC_RETURN_DEFAULT(5);
-    checkPos = _getLowerRampPos(checkPos);
-    SimpleArray<mapPos> neighbours = _getNeighbours(checkPos);
-    PANIC_RETURN_DEFAULT(5);
-    uint8_t leastPriority = 5;
-    uint8_t bestDirec = 5;
-    for (uint16_t i = 0; i < neighbours.size(); i++) {
-        if (map.getType(neighbours[i]) != UNDISCOVERED_TILE)
-            continue;
-        uint8_t direc = vecToDirec(neighbours[i] - checkPos);
-        if (direc == 5) {
-            ERROR_MINOR(F("vecToDirec returned invalid value 5!"), SET_RED);
-            panicMode();
-            return 5;
-        }
-        uint8_t relDirec = wrap(direc - currentDirec, 0, 4);
-        if (direcCheckPriority[relDirec] < leastPriority) {
-            leastPriority = direcCheckPriority[relDirec];
-            bestDirec = direc;
-        }
-    }
-    if (bestDirec == 5) {
-        //ERROR("This function was used on a tile with no adj uned tiles!");
-        ERROR_MINOR(F("This function was used on a tile with no adj uned tiles!"), SET_RED);
-        panicMode();
-    }
-    if (PanikFlags::getInstance().outOfRam()) {
-        panicMode();
-        return 5;
-    }
-    return bestDirec;
 }
 
 mapPos Mapper::_getLowerRampPos(mapPos checkPos) {
@@ -620,4 +535,39 @@ mapPos Mapper::_getLowerRampPos(mapPos checkPos) {
         return checkPos;
     else
         return mapPos(checkPos.x, checkPos.y, checkPos.z - 1);
+}
+
+uint8_t Mapper::_getUndiscoveredTileDeltaRot(mapPos currPos, uint8_t currRot) {
+    PANIC_RETURN_DEFAULT(0);
+
+    uint8_t bestDir = 4;
+    uint8_t priority = 0xFF;
+    
+    NeighbourIterator iter(map.get(currPos), currPos);
+
+    // DB_PRINTLN(F("_getUndiscoveredTileDeltaRot call:"));
+    // DB_PRINT((F("  Args: ")));
+    // VAR_FUNC_PRINT(currPos);
+    // DB_PRINT(F(", "));
+    // VAR_PRINTLN(currRot);
+
+    while (iter.next()) {
+        if (map.getType(iter.get()) != UNDISCOVERED_TILE)
+            continue;
+        uint8_t dir = iter.getDirec();
+        uint8_t pri = direcCheckPriority[((dir - currRot) + 4) % 4];
+        // DB_PRINT_MUL((F("  dir: "))(dir)(F(":\n    pri: "))(pri)(F("\n    pos: ("))(iter.get().x)(", ")(iter.get().y)(", ")(iter.get().z)(")\n"));
+        if (pri < priority) {
+            priority = pri;
+            bestDir = dir;
+        }
+    }
+    // DB_PRINT_MUL(F("  Result: ")(bestDir)('\n'));
+    if (bestDir == 4) {
+        ERROR_MINOR(F("Could not find undiscovered adjacent tile"), SET_RED);
+        panicMode();
+        return 0;
+    }
+
+    return deltaRotation(currRot, bestDir);
 }

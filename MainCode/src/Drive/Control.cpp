@@ -50,11 +50,11 @@ int Control::turnRobot(float targetAngle, uint32_t startTime, float tolerance) {
     
     int direction = (correction < 0) ? -1 : 1;
 
-    int m1Speed =  -direction * speed; 
-    int m2Speed =  -direction * speed; 
+    int m1Speed = direction * speed; // -
+    int m2Speed = direction * speed; // -
     
-    int m3Speed = direction * speed; 
-    int m4Speed = direction * speed; 
+    int m3Speed = -direction * speed; //
+    int m4Speed = -direction * speed; //
 
     _motors.setSpeeds(m1Speed, m2Speed, m3Speed, m4Speed);
     
@@ -109,11 +109,11 @@ void Control::keepHeading(float targetDistance, float speedMul) {
     //     invertMove = -1; // Linke Wand
     // } 
     //Alte erkennung für den Wandwecchsel, neue nimmt nicht den mittelwert sondern prüft die einzelnen tofs bei jeder seite
-
-        if ((getRFDistance() < 200 && getRFDistance() > 0)&& (getRBDistance() < 200 && getRBDistance() > 0)) {
+    
+    if (getTofRFValid() && getTofRBValid()) {
         averageDistance = rightDist;
         invertMove = 1;  // Rechte Wand
-    } else if ((getLFDistance() < 200 && getLFDistance() > 0) && (getLBDistance() < 200 && getLBDistance() > 0))
+    } else if (getTofLFValid() && getTofLBValid())
     {
       averageDistance = leftDist;
         invertMove = -1; // Linke Wand
