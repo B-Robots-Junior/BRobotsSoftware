@@ -8,7 +8,6 @@
 
 #define CURR_MAIN main
 
-
 #define USE_NEW_RASPI_COMMS false
 
 // eeprom settings

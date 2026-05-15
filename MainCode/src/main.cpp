@@ -13,6 +13,11 @@
 
 #include <config.h>
 
+#define __WARNING_CHECK_main true
+#if !CAT(__WARNING_CHECK_, CURR_MAIN)
+#warning "Not Compiling Main Script!"
+#endif
+
 #define USE_main true
 #if CAT(USE_, CURR_MAIN)
 #undef USE_main
@@ -80,8 +85,8 @@ int main() {
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
 
-    Devices::ledsTop.fill(0x40000000); // (0x40000000);
-    Devices::ledsTop.show();
+    //Devices::ledsTop.fill(0x40000000); // (0x40000000);
+    //Devices::ledsTop.show();
 
     /*
     for (uint8_t type = 0; type < 5; type++) {
@@ -160,22 +165,12 @@ void mainFunc() {
     int64_t lastEncoderDist = 0;
     int64_t trueEncoderDist = 0;
 
-    // blue tile interrupt data:
-    bool inBlueTile = false;
-    bool stoppedInTile = false;
-    int64_t blueTileLastMillis = millis();
-    uint32_t blueTileStopStartTime = 0;
-    uint32_t blueTileToleranceStarTime = 0;
-    // the color sensor should check continuously if we are in a blue tile if so it should
-    // set the inBlueTile flag correctly and if you enter a blue tile set the blueTileStartEncoderDist
-    // so that when the encoder dist is greater than 150 + blueTileStartEncoderDist && !stoppedInTile you can stop for 5 seconds
-    // and change the flag, also if the encoder dist is grater than 300 + blueTileStartEncoderDist then you can reset the
-    // stoppedInTile flag and reset blueTileStartEncoderDist to the current encoder dist
-    // encoders should be good enough for one or two tiles, so I think this is fine
-
     // camera state stuff
     MainStates mainStateBeforeCamInt = mainState;
     uint32_t cameraStartTime = millis();
+
+    // blue tile data:
+    uint32_t blueTileStopStartTime = 0;
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
@@ -197,7 +192,7 @@ void mainFunc() {
     bool running = true;
     while (running) 
     {
-        uint64_t loopStart = millis();
+        // uint64_t loopStart = millis();
 
         // ----------------------------------------------------------------------------------------------------
         // update all sensors:
@@ -211,24 +206,6 @@ void mainFunc() {
             digitalWrite(CALIB_LED, HIGH);
         else
             digitalWrite(CALIB_LED, LOW);
-
-        // blue tile stuff:
-        ColorType currSpecType = Devices::spec.getColorId();
-        if (currSpecType == ColorType::Blue && !inBlueTile) {
-            // entered a blue tile, reset flags:
-            inBlueTile = true;
-            blueTileLastMillis = millis();
-            stoppedInTile = false;
-        } else if (currSpecType != ColorType::Blue && inBlueTile) {
-            // exited a blue tile, set flags accordingly
-            inBlueTile = false;
-            stoppedInTile = false;
-        }
-
-        if (inBlueTile && (millis() - blueTileLastMillis) > 1000) {
-            blueTileLastMillis = millis();
-            stoppedInTile = false;
-        }
 
         // ----------------------------------------------------------------------------------------------------
         // get current tile
@@ -326,7 +303,7 @@ void mainFunc() {
             }
 
             LACK;
-            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(-90 * currMove.rotation, calculateposition());
+            targetTurnAngle = ReadGyroyaw() + angleDiffDEG(90 * currMove.rotation, calculateposition());
             VAR_PRINTLN(targetTurnAngle);
             turnStartTime = millis();
             VAR_PRINTLN(turnStartTime);
@@ -352,11 +329,6 @@ void mainFunc() {
                 turnStartTime = millis();
                 turnTol *= 2; // increase tolerance and try agian.
             }
-
-            // we don't want to count the encoders when turing so we skip the current delta
-            if (inBlueTile) {
-                blueTileLastMillis = millis();
-            }
             
             break;
         }
@@ -370,48 +342,35 @@ void mainFunc() {
                 break;
             }
 
-            bool drivinOnToRamp = rampInfront() && (currMove.distance * 300 >= getFrontBottomLongDistance());
+            targetBackDist = getBackDistance() + 300; // drive 300 mm
+            if (!getTofBValid())
+                targetBackDist = -1;
 
-            if (!getTofBValid() || drivinOnToRamp || isRamp()) {
-                LACK;
-                targetBackDist = -1; // can't rely on the back dist
-            } else {
-                LACK;
-                // its hard to check if there is ramp behind you, so you add 300 to the back of what you currently have and call it a day
-                // and let the front tof aling to the nearest tile, because it is prioritized and can detect ramps
-                targetBackDist = getBackDistance() + 300;
-                VAR_PRINTLN(targetBackDist);
+            VAR_PRINTLN(getFrontTopDistance());
+            VAR_PRINTLN(getTofFTValid());
+            VAR_PRINTLN(rampInfront());
+            targetFrontDist = getFrontTopDistance() - 300; // drive 300 mm
+            if (!getTofFTValid()) // if the tof values are invalid
+                targetFrontDist = -1;
+            else if (!rampInfront()) { // if there is no ramp in front (center to the nearest tile)
+                int numTiles = getFrontTopDistance() / 300.0;
+                VAR_PRINTLN(numTiles);
+                VAR_PRINTLN(getFrontTopDistance() % 300);
+                if (getFrontTopDistance() % 300 > 180) numTiles++; // add a bit of tolerance
+                VAR_PRINTLN(numTiles);
+                targetFrontDist = (numTiles - 1) * 300 + FRONT_WALL_DIST_MM;
             }
+            else if (getFrontTopDistance() < 300) // driving onto ramp
+                targetFrontDist = -1;
+            
+            if (getTofFTValid() && !rampInfront() && getFrontTopDistance() < 180) { // if there is no tile in front of you
+                ERROR_MINOR(F("Mapper gave me bullshit data!"), SET_RED);
+                mapper.panicMode();
+                setMainState(MainStates::COMPLETE_MOVE, MainStates::START_DRIVE);
+                break;
+            } 
 
-            if (!getTofFTValid() || drivinOnToRamp || isRamp()) {
-                LACK;
-                targetFrontDist = -1; // can't rely of on front dist
-            } else {
-                LACK;
-                // if there is a ramp in front of you and you are not driving on it simply subtract 300, because you can't align to the nearest tile like that
-                VAR_PRINTLN(rampInfront());
-                if (rampInfront()) {
-                    targetFrontDist = getFrontTopDistance() - 300 * currMove.distance;
-                } else { // if there is no ramp infront of you align to the full tile
-                    float currentTilesFrontFloat = getFrontTopDistance() / 300.0;
-                    int currentTilesFront = currentTilesFrontFloat;
-                    // if there is more than 90% of a tile there you can count is as a full tile (to avoid uneccecary panic modes)
-                    if (currentTilesFrontFloat - currentTilesFront >= 0.9) 
-                        currentTilesFront++;
-                    if (currMove.distance > currentTilesFront) {
-                        ERROR_MINOR(F("Mapper gave me bullshit data going into panic mode!"), SET_RED);
-                        mapper.panicMode();
-                        setMainState(MainStates::GET_MOVE, MainStates::START_DRIVE);
-                        BREAK;
-                        break;
-                    }
-                    targetFrontDist = (currentTilesFront - currMove.distance) * 300 + FRONT_WALL_DIST_MM;
-                }
-                VAR_PRINTLN(targetFrontDist);
-            }
-
-
-            targetEncoderDist = 300 * currMove.distance;
+            targetEncoderDist = 300;
             lastEncoderDist = getEncoderValueMM();
             trueEncoderDist = 0;
 
@@ -429,38 +388,78 @@ void mainFunc() {
             Devices::control.resetPIDs();
 
             BREAK;
-            BREAK_ONLY(
+            /*BREAK_ONLY(
                 if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
                     resetInterrupt();
-            )
+            )*/
             break;
         }
         
         // ----------------------------------------------------------------------------------------------------
         // drive:
         case MainStates::DRIVE: {
-            if (inBlackTile) {
+            if (inBlackTile && !isRamp()) {
                 Devices::motors.setSpeeds(0, 0, 0, 0);
                 setMainState(MainStates::BLACK_IR, MainStates::DRIVE);
             }
 
-            if (inBlueTile && !stoppedInTile && blueTileLastMillis > 100) {
-                Devices::motors.setSpeeds(0, 0, 0, 0);
-                DB_COLOR_PRINTLN(F("Stopping in blue tile!"), SET_BLUE);
-                blueTileStopStartTime = millis();
-                setMainState(MainStates::BLUE_TILE_STOP, MainStates::DRIVE);
-                break;
-            }
-
             int ret = Devices::control.driveAlong(targetBackDist, targetFrontDist, WALL_DIST_MM, targetDriveAngle, lastEncoderDist, trueEncoderDist, targetEncoderDist, 1.0f, FRONT_WALL_DIST_MM);
             if (ret == 0) {
-                setMainState(MainStates::COMPLETE_MOVE, MainStates::DRIVE);
+                //! not using MainStates::ENSURE_HEADING
+                // targetTurnAngle = targetDriveAngle + angleDiffDEG(0, calculateposition()); //! No idea if that makes sens
+                // VAR_PRINTLN(targetTurnAngle);
+                // VAR_PRINTLN(ReadGyroyaw());
+                // turnStartTime = millis();
+                // turnTol = 5;
+                // BREAK;
+                setMainState(MainStates::CHECK_BLUE, MainStates::DRIVE); //! Skipping ENSURE_HEADING, because I think it is pointless
             } else if (ret == -1) {
                 ERROR_MINOR(F("Failed to complete drive!"), SET_RED);
                 mapper.panicMode(); // we have no idea where we are anymore (tofs and encoder failed us)
                 setMainState(MainStates::GET_MOVE, MainStates::DRIVE);
             }
             
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // make sure the heading is correct ater driving so that we don't get any incorrect wall detections:
+        case MainStates::ENSURE_HEADING: {
+            LACK;
+            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
+            if (ret == 0) {
+                setMainState(MainStates::CHECK_BLUE, MainStates::ENSURE_HEADING);
+            } else if (ret == -1) {
+                ERROR_MINOR(F("Devices::controll.turnRobot timeout occoured!"), SET_RED);
+                turnStartTime = millis();
+                turnTol *= 2; // increase tolerance and try agian.
+            }
+
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // check if in a blue tile:
+        case MainStates::CHECK_BLUE: {
+            LACK;
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            if (getTileType() == BLUE_TILE) {
+                Devices::motors.setSpeeds(0, 0, 0, 0);
+                blueTileStopStartTime = millis();
+                setMainState(MainStates::BLUE_TILE_STOP, MainStates::CHECK_BLUE);
+                break;
+            }
+            setMainState(MainStates::COMPLETE_MOVE, MainStates::CHECK_BLUE);
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // stop in a blue tile:
+        case MainStates::BLUE_TILE_STOP: {
+            Devices::motors.setSpeeds(0, 0, 0, 0);
+            if (millis() - blueTileStopStartTime >= 5000) {
+                setMainState(MainStates::COMPLETE_MOVE, MainStates::BLUE_TILE_STOP);
+            }
             break;
         }
         
@@ -471,10 +470,10 @@ void mainFunc() {
             
             setMainState(MainStates::GET_MOVE, MainStates::COMPLETE_MOVE);
 
-            BREAK_ONLY(
+            /*BREAK_ONLY(
                 if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
                     resetInterrupt();
-            )
+            )*/
             BREAK;
             break;
         }
@@ -490,13 +489,11 @@ void mainFunc() {
             setMainState(MainStates::BLACK_DRIVE, MainStates::BLACK_IR);
             targetDriveAngle = ReadGyroyaw();
 
-            blueTileToleranceStarTime = 0;
-
             Devices::control.resetPIDs();
-            BREAK_ONLY(
+            /*BREAK_ONLY(
                 if (INPUT_BOOL((F("Reset to last checkpoint? ")), false))
                     resetInterrupt();
-            )
+            )*/
             BREAK;
             break;
         }
@@ -508,15 +505,46 @@ void mainFunc() {
             // counted and we want to counteract that by subtracting from the true distance so the blue tile isn't counted twice,
             // this is a very nieche edge case that saves us 10s, but easy enough to prevent
 
-            if (!inBlackTile && blueTileToleranceStarTime == 0) {
+            if (!inBlackTile) {
                 LACK;
-                blueTileToleranceStarTime = millis();
+                setMainState(MainStates::BLACK_CENTER, MainStates::BLACK_DRIVE);
+
+                targetBackDist = getBackDistance() - FRONT_WALL_DIST_MM; // center to the nearest tile
+                if (!getTofBValid())
+                    targetBackDist = -1;
+
+                targetFrontDist = getFrontTopDistance() + FRONT_WALL_DIST_MM; // standard drive FRONT_WALL_DIST_MM
+                if (!getTofFTValid()) // if the tof values are invalid
+                    targetFrontDist = -1;
+                else if (!rampInfront()) { // if there is no ramp in front
+                    int numTiles = getFrontTopDistance() / 300;
+                    if (getFrontTopDistance() % 300 > 200) numTiles++;
+                    targetFrontDist = numTiles * 300 + FRONT_WALL_DIST_MM;
+                }
+                else if (getFrontTopDistance() < 300) // driving onto ramp
+                    targetFrontDist = -1;
+
+                targetEncoderDist = FRONT_WALL_DIST_MM;
+                lastEncoderDist = getEncoderValueMM();
+                trueEncoderDist = 0;
+
+                targetDriveAngle = ReadGyroyaw();
             }
-            // simply add a bit of toleranz here
-            if (blueTileToleranceStarTime != 0 && (millis() - blueTileToleranceStarTime) >= 100) {
+
+            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -0.5);
+
+            break;
+        }
+
+        // ----------------------------------------------------------------------------------------------------
+        // center on the tile behind you:
+        case MainStates::BLACK_CENTER: {
+            int ret = Devices::control.driveAlong(targetBackDist, targetFrontDist, WALL_DIST_MM, targetDriveAngle, lastEncoderDist, trueEncoderDist, targetEncoderDist, -0.5, FRONT_WALL_DIST_MM);
+
+            if (ret == 0) {
                 Devices::motors.setSpeeds(0, 0, 0, 0);
-                setMainState(MainStates::BLACK_TURN, MainStates::BLACK_DRIVE);
-                targetTurnAngle = ReadGyroyaw() + 180;
+                setMainState(MainStates::BLACK_TURN, MainStates::BLACK_CENTER);
+                targetTurnAngle = wrap360(ReadGyroyaw() + 180);
                 VAR_PRINTLN(targetTurnAngle);
                 turnStartTime = millis();
                 VAR_PRINTLN(turnStartTime);
@@ -524,9 +552,11 @@ void mainFunc() {
                 Devices::control.resetPIDs();
                 BREAK;
                 break;
+            } else if (ret == -1) {
+                ERROR_MINOR(F("Failed to complete drive!"), SET_RED);
+                mapper.panicMode(); // we have no idea where we are anymore (tofs and encoder failed us)
+                setMainState(MainStates::GET_MOVE, MainStates::BLACK_CENTER);
             }
-
-            Devices::control.uncondDriveAlong(WALL_DIST_MM, targetDriveAngle, -0.5);
 
             break;
         }
@@ -548,25 +578,14 @@ void mainFunc() {
         }
 
         // ----------------------------------------------------------------------------------------------------
-        // stop in a blue tile:
-        case MainStates::BLUE_TILE_STOP: {
-            Devices::motors.setSpeeds(0, 0, 0, 0);
-            if (millis() - blueTileStopStartTime >= 5000) {
-                stoppedInTile = true;
-                setMainState(MainStates::DRIVE, MainStates::BLUE_TILE_STOP);
-            }
-            break;
-        }
-
-        // ----------------------------------------------------------------------------------------------------
         // wait in a reset state until it should resume:
         case MainStates::RESET_STATE: {
             // simply do nothing in this sate and wait until the isr gets you out of it
             Devices::motors.setSpeeds(0, 0, 0, 0);
-            BREAK_ONLY(
+            /*BREAK_ONLY(
                 if (INPUT_BOOL((F("Exit reset state? ")), true))
                     resetInterrupt();
-            )
+            )*/
             break;
         }
 
@@ -615,8 +634,8 @@ void mainFunc() {
 
         }
 
-        uint64_t loopDur = millis() - loopStart;
-        DB_PRINT_MUL((SET_RED)(F("loop time: "))((long)loopDur)(RESET_COLOR)('\n'));
+        //uint64_t loopDur = millis() - loopStart;
+        //DB_PRINT_MUL((SET_RED)(F("loop time: "))((long)loopDur)(RESET_COLOR)('\n'));
         // saveToEEPROM<uint64_t>(256, readFromEEPROM<uint64_t>(256) + 1); // num loops
         // saveToEEPROM<uint64_t>(256 + sizeof(uint64_t), readFromEEPROM<uint64_t>(256 + sizeof(uint64_t)) + loopDur); // sum durs
         // if (loopDur < readFromEEPROM<uint64_t>(256 + sizeof(uint64_t) * 2))
@@ -647,12 +666,11 @@ bool initEverything() {
 }
 #undef CHECK_INIT
 
-/*
 // black tile enter interrupt
 void rgbcSensorOnEnter() {
     // I only really care about black tiles while driving, but I don't want to trigger
     // Devices::rgbcSensor.enterBlackTile(), because that could eat a black tile if it triggers while trurning or something
-    if (mainState == MainStates::DRIVE) {
+    if (mainState == MainStates::DRIVE && !isRamp()) {
         DB_PRINTLN(F("Enter black tile!"));
         Devices::motors.setSpeeds(0, 0, 0, 0);
         inBlackTile = true; // so we can drive until this is false
@@ -661,15 +679,16 @@ void rgbcSensorOnEnter() {
         return;
     }
     // we want to clear the interrupt again, just so it can trigger when we start to drive
-    Devices::rgbcSensor.clearInterrupt();
+    Devices::rgbcSensor.enterBlackTile();
 }
-*/
 
+/*
 void rgbcSensorOnEnter() {
     DB_PRINTLN(F("Enter black tile!"));
     inBlackTile = true;
     Devices::rgbcSensor.enterBlackTile();
 }
+*/
 
 // black tile exit interrupt
 void rgbcSensorOnExit() {
@@ -729,7 +748,7 @@ uint8_t getTileType() {
 }
 
 bool getUp() {
-    return -wrap180(gyro.getPitch()) >= RAMP_INCLINE_THRESHOLD;
+    return ReadGyropitch() >= RAMP_INCLINE_THRESHOLD;
 }
 
 bool rampInfront() {

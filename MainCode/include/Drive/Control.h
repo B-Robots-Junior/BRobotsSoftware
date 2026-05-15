@@ -12,7 +12,7 @@
 
 #define TURN_KP 4.0
 #define TURN_KI 1.2
-#define TURN_KD 1
+#define TURN_KD 1.0
 #define TURN_INT_LIMIT 50.0
 #define MAX_SPEED_TURN 175
 #define MIN_SPEED_TURN 30
