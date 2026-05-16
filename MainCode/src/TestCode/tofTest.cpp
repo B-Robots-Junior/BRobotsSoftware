@@ -14,6 +14,12 @@ void rgbcSensorOnEnter() {
 void rgbcSensorOnExit() {
 }
 
+bool rampInfront() {
+    if (!getTofFTValid() || !getTofFBRValid())
+        return false;
+    return getFrontAngle() <= FRONT_RAMP_THRESHOLD;
+}
+
 int main() {
     init();
 
@@ -31,7 +37,9 @@ int main() {
             (F("    front: "))(wallFront())('\n')
             (F("    left: "))(wallLeft())(F(" right: "))(wallRight())('\n')
             (F("    back: "))(wallBack())('\n')('\n')
+            (F("    frontAngle: "))(getFrontAngle())(F(", isRamp: "))(rampInfront())('\n')('\n')
         );
+        delay(10);
     }
 }
 

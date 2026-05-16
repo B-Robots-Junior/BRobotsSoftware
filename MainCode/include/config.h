@@ -6,7 +6,7 @@
 
 #define BAUDE_RATE 115200
 
-#define CURR_MAIN display
+#define CURR_MAIN main
 
 #define USE_NEW_RASPI_COMMS false
 

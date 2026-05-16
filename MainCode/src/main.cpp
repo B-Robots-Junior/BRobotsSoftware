@@ -752,7 +752,7 @@ bool getUp() {
 }
 
 bool rampInfront() {
-    if (!getTofFTValid() || getTofFBRValid()) // not reliable enough if too large
+    if (!getTofFTValid() || !getTofFBRValid())
         return false;
     return getFrontAngle() <= FRONT_RAMP_THRESHOLD;
 }

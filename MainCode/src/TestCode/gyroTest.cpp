@@ -7,6 +7,9 @@
 #if CAT(USE_, CURR_MAIN)
 #undef USE_gyro
 
+void rgbcSensorOnEnter() {}
+void rgbcSensorOnExit() {}
+
 bool initEverything();
 
 int main() {
