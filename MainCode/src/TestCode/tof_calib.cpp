@@ -13,6 +13,8 @@
 void rgbcSensorOnEnter() {}
 void rgbcSensorOnExit() {}
 
+#define DIST_FUNC() getFrontBottomShortDistance()
+
 int main() {
     init();
     sei();
@@ -33,8 +35,8 @@ int main() {
     uint64_t sum = 0;
     for (int i = 0; i < 100; i++) {
         updateTofs();
-        DB_PRINTLN(getRBDistance());
-        sum += getRBDistance();
+        DB_PRINTLN(DIST_FUNC());
+        sum += DIST_FUNC();
         delay(10);
     }
     VAR_PRINTLN(sum / 100.0);

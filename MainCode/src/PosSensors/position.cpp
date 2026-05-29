@@ -255,11 +255,11 @@ bool wallBack() {
 bool wallRight() {
     if (!getTofRBValid() && !getTofRFValid())
         return false;
-    return getRightDistance() <= 100;
+    return getRightDistance() <= 150;
 }
 
 bool wallLeft() {
     if (!getTofLBValid() && !getTofLFValid())
         return false;
-    return getLeftDistance() <= 100;
+    return getLeftDistance() <= 150;
 }

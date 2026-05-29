@@ -12,6 +12,8 @@ void rgbcSensorOnExit() {}
 
 bool initEverything();
 
+#define ENDLINE F("                                                 \n")
+
 int main() {
     init();
     sei();
@@ -20,10 +22,13 @@ int main() {
     if (!initEverything())
         ERROR(F("Could not init sensors!"));
 
+    DB_PRINT(CLEAR_SCREEN);
+
     while (true) {
         gyro.update();
 
-        DB_PRINT_MUL((CLEAR_SCREEN_AND_HOME)(F("roll: "))(ReadGyroroll())(F(", pitch: "))(ReadGyropitch())(F(", yaw: "))(ReadGyroyaw())('\n'));
+        DB_PRINT_MUL((CURSOR_HOME)(F("roll: "))(ReadGyroroll())(F(", pitch: "))(ReadGyropitch())(F(", yaw: "))(ReadGyroyaw())(ENDLINE));
+        delay(100);
     }
     
 }

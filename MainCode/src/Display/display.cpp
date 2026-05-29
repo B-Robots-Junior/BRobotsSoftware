@@ -16,13 +16,10 @@ bool Display::begin() {
 }
 
 void Display::update() {
-    uint32_t displayTimeStamp = millis();
     currMenu->update(this);
-    displayTimeStamp = millis();
     display.clearDisplay();
     if (currMenu != nullptr)
         currMenu->draw(this);
-    displayTimeStamp = millis();
     display.display();
     if (_runCurrSelectableOnNextUpdate) {
         _runCurrSelectableOnNextUpdate = false;

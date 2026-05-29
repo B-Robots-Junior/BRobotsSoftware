@@ -161,16 +161,25 @@ void Control::keepCenteredgyro(float angle, float speedMul) {
 }
 
 int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDist, float target_angle, int64_t& lastEncoderDist, int64_t& trueEncoderDist, int64_t targetEncoderDist, float speedMul, int wallStoppingDist) { 
-    float incline = wrap180(-gyro.getPitch());
+    float incline = wrap180(gyro.getPitch());
     incline = wrap180(incline);
     
     int64_t currEncoderDist = getEncoderValueMM();
+    VAR_PRINTLN(incline);
+    trueEncoderDist += cosf(abs(incline) * DEG_TO_RAD)
+                        * (currEncoderDist - lastEncoderDist)
+                        * (incline >= 12 ? ENCODER_INCLINE_SCALE : incline <= -12 ? ENCODER_DECLINE_SCALE : 1);
+    if (abs(incline) >= 12) {
+        _driveAlongFailed = true;
+    }
+    /*
     if (abs(incline) >= 12) {
         _driveAlongFailed = true;
         trueEncoderDist += (currEncoderDist - lastEncoderDist) / 1.20; // pythagoras shit
     } else {
         trueEncoderDist += (currEncoderDist - lastEncoderDist);
     }
+    */
     DB_PRINT_MUL((F("curr: "))((long)currEncoderDist)(F(" last: "))((long)lastEncoderDist)(F(" diff: "))((long)(currEncoderDist - lastEncoderDist))(F(" true: "))((int)trueEncoderDist)(F(" target: "))((long)targetEncoderDist)(" inc: ")(incline)('\n'));
     lastEncoderDist = currEncoderDist;
 

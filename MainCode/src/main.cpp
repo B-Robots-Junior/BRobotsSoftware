@@ -115,8 +115,8 @@ int main() {
 
     attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
 
-    //attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
-    //attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
+    attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
+    attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
 
     BREAK;
 
@@ -214,6 +214,7 @@ void mainFunc() {
         // ----------------------------------------------------------------------------------------------------
         // update camera:
 
+        /*
         RaspiEvent raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
         while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
             raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
@@ -238,6 +239,7 @@ void mainFunc() {
             }
 #endif
         }
+        */
         
 
         // ----------------------------------------------------------------------------------------------------
@@ -363,7 +365,7 @@ void mainFunc() {
             else if (getFrontTopDistance() < 300) // driving onto ramp
                 targetFrontDist = -1;
             
-            if (getTofFTValid() && !rampInfront() && getFrontTopDistance() < 180) { // if there is no tile in front of you
+            if (getTofFTValid() && !rampInfront() && getFrontTopDistance() < 180 && !mapper.isInPanicMode()) { // if there is no tile in front of you
                 ERROR_MINOR(F("Mapper gave me bullshit data!"), SET_RED);
                 mapper.panicMode();
                 setMainState(MainStates::COMPLETE_MOVE, MainStates::START_DRIVE);
@@ -613,11 +615,13 @@ void mainFunc() {
         // when the left or right bumper triggers:
         case MainStates::RIGHT_BUMPER:
         case MainStates::LEFT_BUMPER: {
+            /*
             if (mainState == MainStates::RIGHT_BUMPER)
                 setMainState(MainStates::DRIVE, MainStates::RIGHT_BUMPER);
             else
                 setMainState(MainStates::DRIVE, MainStates::LEFT_BUMPER);
-            break; // this is just to remove the bumper code, because we don't use it!
+            break; // this is just to remove the bumper code, because we didn't use it!
+            */
             // because we interrupted a drive and we should subtract the distance from the true Encoder dist, so the drive does not get confused
             trueEncoderDist -= getEncoderValueMM() - lastEncoderDist;
             lastEncoderDist = getEncoderValueMM();
@@ -707,8 +711,8 @@ void resetInterrupt() {
 }
 
 void bumperInterruptRight() {
-    if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
-        return;
+    // if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
+    //    return;
     if (mainState == MainStates::DRIVE) {
         Devices::motors.setSpeeds(0, 0, 0, 0);
         mainState = MainStates::RIGHT_BUMPER;
@@ -717,8 +721,8 @@ void bumperInterruptRight() {
 }
 
 void bumperInterruptLeft() {
-    if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
-        return;
+    // if (getFrontTopDistance() <= 100) // if front distance is too small ignore bumper
+    //    return;
     if (mainState == MainStates::DRIVE) {
         Devices::motors.setSpeeds(0, 0, 0, 0);
         mainState = MainStates::LEFT_BUMPER;

@@ -20,6 +20,8 @@ bool rampInfront() {
     return getFrontAngle() <= FRONT_RAMP_THRESHOLD;
 }
 
+#define ENDLINE F("                                                 \n")
+
 int main() {
     init();
 
@@ -27,19 +29,21 @@ int main() {
 
     initTofs();
 
+    DB_PRINT(CLEAR_SCREEN_AND_HOME);
+
     while (true) {
-        DB_PRINT_MUL((CLEAR_SCREEN_AND_HOME)
+        DB_PRINT_MUL((CURSOR_HOME)
             (F("Data:\n"))
-            (F("    fl: "))(getFrontBottomShortDistance())(' ')(getTofFBLValid())(F(", f: "))(getFrontTopDistance())(' ')(getTofFTValid())(F(", fr: "))(getFrontBottomLongDistance())(' ')(getTofFBRValid())('\n')
-            (F("    lf: "))(getLFDistance())(' ')(getTofLFValid())(F(", rf: "))(getRFDistance())(' ')(getTofRFValid())('\n')
-            (F("    lb: "))(getLBDistance())(' ')(getTofLBValid())(F(", rb: "))(getRBDistance())(' ')(getTofRBValid())('\n')
-            (F("    b: "))(getBackDistance())(' ')(getTofBValid())('\n')('\n')
-            (F("    front: "))(wallFront())('\n')
-            (F("    left: "))(wallLeft())(F(" right: "))(wallRight())('\n')
-            (F("    back: "))(wallBack())('\n')('\n')
-            (F("    frontAngle: "))(getFrontAngle())(F(", isRamp: "))(rampInfront())('\n')('\n')
+            (F("    fl: "))(getFrontBottomShortDistance())(' ')(getTofFBLValid())(F(", f: "))(getFrontTopDistance())(' ')(getTofFTValid())(F(", fr: "))(getFrontBottomLongDistance())(' ')(getTofFBRValid())(ENDLINE)
+            (F("    lf: "))(getLFDistance())(' ')(getTofLFValid())(F(", rf: "))(getRFDistance())(' ')(getTofRFValid())(ENDLINE)
+            (F("    lb: "))(getLBDistance())(' ')(getTofLBValid())(F(", rb: "))(getRBDistance())(' ')(getTofRBValid())(ENDLINE)
+            (F("    b: "))(getBackDistance())(' ')(getTofBValid())(ENDLINE)(ENDLINE)
+            (F("    front: "))(wallFront())(ENDLINE)
+            (F("    left: "))(wallLeft())(F(" right: "))(wallRight())(ENDLINE)
+            (F("    back: "))(wallBack())(ENDLINE)(ENDLINE)
+            (F("    frontAngle: "))(getFrontAngle())(F(", isRamp: "))(rampInfront())(ENDLINE)(ENDLINE)
         );
-        delay(10);
+        delay(100);
     }
 }
 

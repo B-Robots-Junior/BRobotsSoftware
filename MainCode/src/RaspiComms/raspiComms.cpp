@@ -87,12 +87,12 @@ void RaspiComms::debugLog(String str) {
 }
 
 void RaspiComms::sendTile(int8_t x, int8_t y, int8_t z, uint8_t data) {
-    uint8_t pack_data[4] = {x, y, z, data};
+    uint8_t pack_data[4] = {static_cast<uint8_t>(x), static_cast<uint8_t>(y), static_cast<uint8_t>(z), data};
     _sendPacket(PacketType::MAP_TILE, 4, pack_data);
 }
 
 void RaspiComms::sendPos(int8_t x, int8_t y, int8_t z, uint8_t rotation) {
-    uint8_t pack_data[4] = {x, y, z, rotation};
+    uint8_t pack_data[4] = {static_cast<uint8_t>(x), static_cast<uint8_t>(y), static_cast<uint8_t>(z), rotation};
     _sendPacket(PacketType::LOCATION, 4, pack_data);
 }
 
