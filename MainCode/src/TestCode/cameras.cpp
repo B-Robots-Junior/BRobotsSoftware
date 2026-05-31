@@ -19,7 +19,7 @@ int main() {
     DB_PRINTLN(F("Start!"));
 
     Devices::ledsTop.begin();
-    Devices::ledsTop.fill(0xFFFFFFFF);
+    Devices::ledsTop.fill(0x40000000);
     Devices::ledsTop.show();
 
     while (true)
@@ -38,6 +38,26 @@ int main() {
         case RaspiEvent::CAMERA_TRIGGERED_RIGTH:
             DB_PRINTLN(F("Cam triggered right!"));
             break;
+#if USE_NEW_RASPI_COMMS
+        case RaspiEvent::DETECTED_VICTIM_0_RIGHT:
+            DB_PRINTLN(F("DETECTED_VICTIM_0_RIGHT!"));
+            break;
+        case RaspiEvent::DETECTED_VICTIM_0_LEFT:
+            DB_PRINTLN(F("DETECTED_VICTIM_0_LEFT!"));
+            break;
+        case RaspiEvent::DETECTED_VICTIM_1_RIGHT:
+            DB_PRINTLN(F("DETECTED_VICTIM_1_RIGHT!"));
+            break;
+        case RaspiEvent::DETECTED_VICTIM_1_LEFT:
+            DB_PRINTLN(F("DETECTED_VICTIM_1_LEFT!"));
+            break;
+        case RaspiEvent::DETECTED_VICTIM_2_RIGHT:
+            DB_PRINTLN(F("DETECTED_VICTIM_2_RIGHT!"));
+            break;
+        case RaspiEvent::DETECTED_VICTIM_2_LEFT:
+            DB_PRINTLN(F("DETECTED_VICTIM_2_LEFT!"));
+            break;
+#else
         case RaspiEvent::DETECTED_H_RIGHT:
             DB_PRINTLN(F("DETECTED_H_RIGHT!"));
             break;
@@ -74,6 +94,7 @@ int main() {
         case RaspiEvent::DETECTED_RED_LEFT:
             DB_PRINTLN(F("DETECTED_RED_LEFT!"));
             break;
+#endif
         case RaspiEvent::NO_MORE_PACKETS:
             break;
         case RaspiEvent::NONE:

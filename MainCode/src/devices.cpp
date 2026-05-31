@@ -20,8 +20,8 @@ Control Devices::control(Devices::motors);
 
 RaspiComms Devices::comms(Serial1);
 
-RescuePackageHandler Devices::packageHandlerRight(13, 90, -68);
-RescuePackageHandler Devices::packageHandlerLeft(44, 75, 75);
+RescuePackageHandler Devices::packageHandlerRight(5, 105, -55); // pin 13 was hotfix // pinout is 5
+RescuePackageHandler Devices::packageHandlerLeft(44, 61, 59);
 
 #define CHECK_INIT(x) do { if (!(x)) {worked = false; DB_PRINT_MUL((SET_RED)(F("Init of '"))(F(#x))(F("' in Devices::init Failed!\n"))(RESET_COLOR));}} while (0)
 bool Devices::init() {

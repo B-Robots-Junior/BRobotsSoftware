@@ -177,12 +177,9 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         debugLog(F("ACK victim!"));
         switch (packet[0]) {
 #if USE_NEW_RASPI_COMMS
-        case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_PSI_RIGHT : RaspiEvent::DETECTED_PSI_LEFT;
-        case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_PHI_RIGHT : RaspiEvent::DETECTED_PHI_LEFT;
-        case 2: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_OMEGA_RIGHT : RaspiEvent::DETECTED_OMEGA_LEFT;
-        case 3: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_0_RIGHT : RaspiEvent::DETECTED_RING_SUM_0_LEFT;
-        case 4: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_1_RIGHT : RaspiEvent::DETECTED_RING_SUM_1_LEFT;
-        case 5: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_RING_SUM_2_RIGHT : RaspiEvent::DETECTED_RING_SUM_2_LEFT;
+        case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_VICTIM_0_RIGHT : RaspiEvent::DETECTED_VICTIM_0_LEFT;
+        case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_VICTIM_1_RIGHT : RaspiEvent::DETECTED_VICTIM_1_LEFT;
+        case 2: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_VICTIM_2_RIGHT : RaspiEvent::DETECTED_VICTIM_2_LEFT;
 #else
         case 0: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_H_RIGHT : RaspiEvent::DETECTED_H_LEFT;
         case 1: return (oldState == CameraState::TRIGGERED_RIGHT) ? RaspiEvent::DETECTED_S_RIGHT : RaspiEvent::DETECTED_S_LEFT;

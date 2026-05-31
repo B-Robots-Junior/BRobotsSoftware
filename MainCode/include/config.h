@@ -8,7 +8,7 @@
 
 #define CURR_MAIN main
 
-#define USE_NEW_RASPI_COMMS false
+#define USE_NEW_RASPI_COMMS true
 
 // eeprom settings
 #define P_OFFSET_EEPROM 0 // 2 bytes float

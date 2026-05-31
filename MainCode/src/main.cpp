@@ -85,8 +85,8 @@ int main() {
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
 
-    //Devices::ledsTop.fill(0x40000000); // (0x40000000);
-    //Devices::ledsTop.show();
+    Devices::ledsTop.fill(0x40000000); // (0x40000000);
+    Devices::ledsTop.show();
 
     /*
     for (uint8_t type = 0; type < 5; type++) {
@@ -214,17 +214,19 @@ void mainFunc() {
         // ----------------------------------------------------------------------------------------------------
         // update camera:
 
-        /*
         RaspiEvent raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
         while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
             raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
 #if USE_NEW_RASPI_COMMS
-            if (raspiEvent >= RaspiEvent::DETECTED_PSI_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RING_SUM_2_LEFT
-                    && (getEncoderValueMM() - lastDetectionEncoderVal) >= CAM_DISTANCE_TIMEOUT_MM) {
-                mainStateBeforeCamInt = mainState;
-                uncondSetMainState(MainStates::CAMERA_DETECTION);
-                cameraStartTime = millis();
-                triggerPackageThrow(raspiEvent);
+            if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
+                if ((millis() - cameraStartTime) >= 10000) {
+                    Devices::comms.debugLog(F("Detected victim, switching state!"));
+                    DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
+                    mainStateBeforeCamInt = mainState;
+                    uncondSetMainState(MainStates::CAMERA_DETECTION);
+                    cameraStartTime = millis();
+                    triggerPackageThrow(raspiEvent);
+                }
             }
 #else
             if (raspiEvent >= RaspiEvent::DETECTED_H_RIGHT && raspiEvent <= RaspiEvent::DETECTED_RED_LEFT) {
@@ -239,7 +241,6 @@ void mainFunc() {
             }
 #endif
         }
-        */
         
 
         // ----------------------------------------------------------------------------------------------------
@@ -779,18 +780,12 @@ void triggerPackageThrow(RaspiEvent detection) {
     case RaspiEvent::CAMERA_TRIGGERED_LEFT:
     case RaspiEvent::CAMERA_INVALID: break;
 #if USE_NEW_RASPI_COMMS
-    case RaspiEvent::DETECTED_PSI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_PHI_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_OMEGA_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_0_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_1_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_2_RIGHT: Devices::packageHandlerRight.trigger(2); break;
-    case RaspiEvent::DETECTED_PSI_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_PHI_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_OMEGA_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_0_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_1_LEFT: Devices::packageHandlerLeft.trigger(2); break;
-    case RaspiEvent::DETECTED_RING_SUM_2_LEFT: Devices::packageHandlerLeft.trigger(2); break; 
+    case RaspiEvent::DETECTED_VICTIM_0_RIGHT: break;
+    case RaspiEvent::DETECTED_VICTIM_0_LEFT: break;
+    case RaspiEvent::DETECTED_VICTIM_1_RIGHT: Devices::packageHandlerRight.trigger(1); break;
+    case RaspiEvent::DETECTED_VICTIM_1_LEFT: Devices::packageHandlerLeft.trigger(1); break;
+    case RaspiEvent::DETECTED_VICTIM_2_RIGHT: Devices::packageHandlerRight.trigger(2); break;
+    case RaspiEvent::DETECTED_VICTIM_2_LEFT: Devices::packageHandlerLeft.trigger(2); break;
 #else
     case RaspiEvent::DETECTED_H_RIGHT: Devices::packageHandlerRight.trigger(2); break;
     case RaspiEvent::DETECTED_S_RIGHT: Devices::packageHandlerRight.trigger(1); break;
