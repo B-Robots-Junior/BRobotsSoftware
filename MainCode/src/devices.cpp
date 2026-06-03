@@ -16,7 +16,7 @@ DualTB9051FTGMotorShield Devices::motors;
 
 Control Devices::control(Devices::motors);
 
-// Display Devices::display(DIS_MOSI_PIN, DIS_SCLK_PIN, DIS_DC_PIN, DIS_RST_PIN, DIS_CS_PIN);
+Display Devices::display(DIS_MOSI_PIN, DIS_SCLK_PIN, DIS_DC_PIN, DIS_RST_PIN, DIS_CS_PIN);
 
 RaspiComms Devices::comms(Serial1);
 
@@ -31,7 +31,7 @@ bool Devices::init() {
     CHECK_INIT(ledsBottom.begin());
     CHECK_INIT(ledsTop.begin());
     CHECK_INIT(spec.begin());
-    // CHECK_INIT(display.begin());
+    CHECK_INIT(display.begin());
     packageHandlerRight.begin();
     packageHandlerLeft.begin();
     Serial1.begin(115200);

@@ -10,20 +10,16 @@
 #include <ColorSensors/spectrometer.h>
 #include <util/atomic.h>
 #include <PinChangeInterrupt.h>
+#include <DisplayConf/displayConf.h>
 
 #include <config.h>
-
-#define __WARNING_CHECK_main true
-#if !CAT(__WARNING_CHECK_, CURR_MAIN)
-#warning "Not Compiling Main Script!"
-#endif
 
 #define USE_main true
 #if CAT(USE_, CURR_MAIN)
 #undef USE_main
 
 void setMainState(MainStates state, MainStates currentCase);
-void mainFunc();
+void mainFunc(Display* parentDisplay, Menu* parentMenu);
 void resetInterrupt();
 void bumperInterruptRight();
 void bumperInterruptLeft();
@@ -97,32 +93,33 @@ int main() {
         Devices::spec.setColorCurrent(ColorType(type));
     }
     */
+    Devices::display.clearDisplay();
+    Devices::display.currMenu = &mainMenu;
 
-    while (!digitalRead(BUTTON1)) {
-        if (getTofLBValid())
-            digitalWrite(CALIB_LED, HIGH);
-        else
-            digitalWrite(CALIB_LED, LOW);
-    } // wait until start
-    while (digitalRead(BUTTON1)) {
-        if (getTofLBValid())
-            digitalWrite(CALIB_LED, HIGH);
-        else
-            digitalWrite(CALIB_LED, LOW);
-    } // wait until button unpressed
+    while (true) {
+        while (!digitalRead(BUTTON1)) {
+            if (getTofLBValid())
+                digitalWrite(CALIB_LED, HIGH);
+            else
+                digitalWrite(CALIB_LED, LOW);
+            Devices::display.update();
+        } // wait until start
+        while (digitalRead(BUTTON1)) {
+            if (getTofLBValid())
+                digitalWrite(CALIB_LED, HIGH);
+            else
+                digitalWrite(CALIB_LED, LOW);
+            Devices::display.update();
+        } // wait until button unpressed
 
-    delay(100); // simply that the reset does not trigger accidentally
+        delay(100); // simply that the reset does not trigger accidentally
 
-    attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
+        BREAK;
 
-    attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
-    attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
-
-    BREAK;
-
-    mainFunc();
-
-    while (true) {}
+        mainFunc(&Devices::display, &runMenu);
+        Devices::display.currMenu = &runMenu;
+        Devices::display.update();
+    }
 }
 
 // ----------------------------------------------------------------------------------------------------
@@ -144,7 +141,12 @@ void uncondSetMainState(MainStates state) {
     }
 }
 
-void mainFunc() {
+void mainFunc(Display* parentDisplay, Menu* parentMenu) {
+
+    attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
+
+    attachInterrupt(digitalPinToInterrupt(BUMPER1), bumperInterruptRight, FALLING);
+    attachInterrupt(digitalPinToInterrupt(BUMPER2), bumperInterruptLeft, FALLING);
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all the needed data:
@@ -171,6 +173,9 @@ void mainFunc() {
 
     // blue tile data:
     uint32_t blueTileStopStartTime = 0;
+
+    // display update time:
+    uint32_t lastDisplayUpdate = 0;
 
     // ----------------------------------------------------------------------------------------------------
     // initialize all sensors:
@@ -202,6 +207,12 @@ void mainFunc() {
         Devices::spec.update();
         Devices::packageHandlerLeft.update();
         Devices::packageHandlerRight.update();
+
+        if (millis() - lastDisplayUpdate >= 100) {
+            Devices::display.update();
+            lastDisplayUpdate = millis();
+        }
+
         if (getTofLBValid())
             digitalWrite(CALIB_LED, HIGH);
         else
@@ -802,5 +813,11 @@ void triggerPackageThrow(RaspiEvent detection) {
 #endif
     }
 }
+
+#else
+
+#warning "Not Compiling Main Script!"
+
+void mainFunc(Display* parentDisplay, Menu* parentMenu) {}
 
 #endif

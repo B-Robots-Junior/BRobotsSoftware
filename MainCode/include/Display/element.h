@@ -6,7 +6,8 @@
 #include <constants.h>
 #include <Display/display.h>
 #include <Display/menu.h>
-#include "devices.h"
+#include <devices.h>
+#include <Util/utility.h>
 
 #define DEFAULT_FONT_SIZE 1
 
@@ -27,6 +28,41 @@ public:
     Element() {}
 
     virtual void draw(Display* parentDisplay) = 0;
+};
+
+class Rect : public Element {
+public:
+    Rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint16_t color = WHITE, bool fill = false)
+        : _x(x), _y(y), _w(w), _h(h), _color(color), _fill(fill) {}
+
+    void setX(uint8_t x) { _x = x; }
+    void setY(uint8_t y) { _y = y; }
+    void setW(uint8_t w) { _w = w; }
+    void setH(uint8_t h) { _h = h; }
+    void setColor(uint16_t color) { _color = color; }
+    void setFill(bool fill) { _fill = fill; }
+
+    uint8_t getX() const { return _x; } 
+    uint8_t getY() const { return _y; } 
+    uint8_t getW() const { return _w; } 
+    uint8_t getH() const { return _h; } 
+    uint16_t getColor() const { return _color; } 
+    bool getFill() const { return _fill; } 
+
+    void draw(Display* parentDisplay) override {
+        if (_fill)
+            parentDisplay->fill(DisPos(_x, _y), _w, _h, _color);
+        else
+            parentDisplay->display.drawRect(_x, _y, _w, _h, _color);
+    }
+
+protected:
+    uint8_t _x;
+    uint8_t _y;
+    uint8_t _w;
+    uint8_t _h;
+    uint16_t _color;
+    bool _fill;
 };
 
 template <int8_t x, int8_t y, uint8_t size>
@@ -100,6 +136,73 @@ public:
 #define GEN_BATTERY_CHECK(name, posX, posY, size, pin, text, nextMenu) \
     const char name##BatteryText[] PROGMEM = text; \
     BatteryCheck<posX, posY, size, pin> name(reinterpret_cast<const __FlashStringHelper*>(name##BatteryText), nextMenu);
+
+class BasicWalls : public Element {
+public:
+    BasicWalls(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t wallWidth, uint16_t color = WHITE, bool north = false, bool south = false, bool east = false, bool west = false)
+        : _x(x), _y(y), _w(w), _h(h), _wallWidth(wallWidth), _color(color), _north(north), _south(south), _east(east), _west(west) {}
+
+    void setX(uint8_t x) { _x = x; }
+    void setY(uint8_t y) { _y = y; }
+    void setW(uint8_t w) { _w = w; }
+    void setH(uint8_t h) { _h = h; }
+    void setColor(uint16_t color) { _color = color; }
+
+    uint8_t getX() const { return _x; } 
+    uint8_t getY() const { return _y; } 
+    uint8_t getW() const { return _w; } 
+    uint8_t getH() const { return _h; } 
+    uint16_t getColor() const { return _color; }
+
+    void draw(Display* parentDisplay) override {
+        if (_north) parentDisplay->fill(DisPos(_x, _y), _w, _wallWidth, _color);
+        if (_east) parentDisplay->fill(DisPos(_x + (_w - _wallWidth), _y), _wallWidth, _h, _color);
+        if (_south) parentDisplay->fill(DisPos(_x, _y + (_h - _wallWidth)), _w, _wallWidth, _color);
+        if (_west) parentDisplay->fill(DisPos(_x, _y), _wallWidth, _h, _color);
+    }
+
+protected:
+    uint8_t _x;
+    uint8_t _y;
+    uint8_t _w;
+    uint8_t _h;
+    uint8_t _wallWidth;
+    uint16_t _color;
+
+    bool _north, _south, _east, _west;
+};
+
+typedef bool (*WallFunc)(void);
+
+class FuncWalls : public BasicWalls {
+public:
+    FuncWalls(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t wallWidth, WallFunc north, WallFunc east, WallFunc south, WallFunc west, uint16_t color = WHITE)
+        : BasicWalls(x, y, w, h, wallWidth, color), _north(north), _east(east), _south(south), _west(west) {}
+
+    void setNorth(bool (*north)()) { _north = north; }
+    void setEast(bool (*east)()) { _east = east; }
+    void setSouth(bool (*south)()) { _south = south; }
+    void setWest(bool (*west)()) { _west = west; }
+
+    WallFunc getNorth() const { return _north; }
+    WallFunc getEast() const { return _east; }
+    WallFunc getSouth() const { return _south; }
+    WallFunc getWest() const { return _west; }
+
+    void draw(Display* parentDisplay) override {
+        BasicWalls::_north = _north();
+        BasicWalls::_east = _east();
+        BasicWalls::_south = _south();
+        BasicWalls::_west = _west();
+        BasicWalls::draw(parentDisplay);
+    }
+
+protected:
+    WallFunc _north;
+    WallFunc _east;
+    WallFunc _south;
+    WallFunc _west;
+};
 
 // ----------------------------------------------------------------------------------------------------
 // selectable classes

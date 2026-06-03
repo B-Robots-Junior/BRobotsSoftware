@@ -18,4 +18,12 @@
 #define NEOPIXEL_PIN_BOTTOM 45 
 #define NEOPIXEL_PIN_TOP 46
 
+// --------------------------------------------------
+// rotary encoder pins
+// --------------------------------------------------
+
+#define ROTARY_ENCODER_DT_PIN PIN_A13
+#define ROTARY_ENCODER_SW_PIN PIN_A14
+#define ROTARY_ENCODER_CLK_PIN PIN_A15
+
 #endif

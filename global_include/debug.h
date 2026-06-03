@@ -1,5 +1,5 @@
 // set this to true to get a debug output or false to not
-#define DEBUG_MODE true
+#define DEBUG_MODE false
 // these only matter when in debug mode
 #define DELAYS_ENABLED true
 #define BREAKS_ENABLED true

@@ -27,7 +27,7 @@ public:
     static RaspiComms comms;
     static RescuePackageHandler packageHandlerRight;
     static RescuePackageHandler packageHandlerLeft;
-    // static Display display;
+    static Display display;
 
     static bool init(); // init all devices
 };
