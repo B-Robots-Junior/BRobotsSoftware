@@ -11,8 +11,12 @@ extern Menu runMenu;
 extern Menu calibMenu;
 extern Menu inCalibrationMenu;
 extern Menu testMenu;
+extern Menu raspiMenu;
+extern Menu startingRaspiMenu;
 
 void mainFunc(Display* parentDisplay, Menu* parentMenu);
+String getMappingPos();
+void startRaspi(Display* parentDisplay, Menu* parentMenu);
 
 template <ColorType c>
 void calibrateScript(Display* parentDisplay, Menu* parentMenu) {

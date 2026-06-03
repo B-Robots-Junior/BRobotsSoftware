@@ -22,7 +22,7 @@ int main() {
     BEGIN_DEBUG(BAUDE_RATE);
     sei();
 
-    Devices::init();
+    // Devices::init();
 
     Devices::ledsTop.fill(0x40000000);
     Devices::ledsTop.show();

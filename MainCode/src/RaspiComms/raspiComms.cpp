@@ -35,10 +35,10 @@ void RaspiComms::_sendPacket(PacketType use, const __FlashStringHelper* data) {
 }
 
 Packet RaspiComms::_recievePacket(uint32_t timeout) {
-    if (_ser.available() == 0)
+    if (_ser.available() < 3)
         return invalidPacket;
     PacketType type = (PacketType)_ser.read();
-    if (type <= PacketType::INVALID || type > PacketType::LOCATION) {
+    if (type <= PacketType::INVALID || type > PacketType::RASPI_STARTED) {
         debugLog(String(F("_recievePacket got invalid type: ")) + String((int)type));
         return invalidPacket;
     }
@@ -65,12 +65,32 @@ Packet RaspiComms::_recievePacket(uint32_t timeout) {
 }
 
 bool RaspiComms::_checkPacket() {
-    return _ser.available() > 0;
+    return _ser.available() >= 3;
 }
 
 // --------------------------------------------------
 // public methods
 // --------------------------------------------------
+
+void RaspiComms::test() {
+    _sendPacket(PacketType::DEBUG_CONSOLE, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::CAM_RESET, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::CAM_DETECT_SIDE, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::CAM_TOF_DATA, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::CAM_VICTIM_VALID, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::CAM_VICTIM_INVALID, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::MAP_TILE, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::LOCATION, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::P_VAL, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::I_VAL, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::D_VAL, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::START_RASPI, 0, static_cast<uint8_t*>(nullptr));
+    _sendPacket(PacketType::RASPI_STARTED, 0, static_cast<uint8_t*>(nullptr));
+}
+
+void RaspiComms::sendStartSignal() {
+    _sendPacket(PacketType::START_RASPI, 0, static_cast<uint8_t*>(nullptr));
+}
 
 void RaspiComms::debugLog(const __FlashStringHelper* text) {
     size_t len = strlen_P((const char*)text);
@@ -101,9 +121,14 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         return RaspiEvent::NO_MORE_PACKETS;
     }
 
-    DB_PRINTLN(F("Recieved Packet from raspi!"));
+    debugLog(F("Recieved Packet from raspi!"));
+
+    debugLog(String(_ser.available()));
 
     Packet packet = _recievePacket(10);
+
+    debugLog(String(F("Packet type: ")) + static_cast<uint8_t>(packet.type()));
+    debugLog(String(F("Packet size: ")) + packet.size());
 
     switch (packet.type())
     {
@@ -263,6 +288,17 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         DB_PRINT_MUL((F("Set PID D value to "))((float)(packet.data()[0] | (((uint16_t)packet.data()[1]) << 8)))("!\n"));
         return RaspiEvent::NONE;
     }
+
+    // --------------------------------------------------
+    case PacketType::START_RASPI: {
+        return RaspiEvent::NONE;
+    }
+
+    // --------------------------------------------------
+    case PacketType::RASPI_STARTED: {
+        return RaspiEvent::RASPI_STARTED;
+    }
+
     }
 
     return RaspiEvent::NONE;

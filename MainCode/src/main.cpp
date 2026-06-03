@@ -54,7 +54,13 @@ bool inBlackTile = false;
 // bumper stuff
 uint32_t bumperStartTime = millis();
 
+mapPos posToDisplay = mapPos(0, 0, 0);
+
 // ----------------------------------------------------------------------------------------------------
+
+String getMappingPos() {
+    return String(posToDisplay.x) + "," + posToDisplay.y + "," + posToDisplay.z;
+}
 
 int main() {
     init();
@@ -78,6 +84,8 @@ int main() {
     if (!initEverything())
         mainState = MainStates::REINIT;
 
+    Devices::comms.test();
+
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
 
@@ -95,6 +103,7 @@ int main() {
     */
     Devices::display.clearDisplay();
     Devices::display.currMenu = &mainMenu;
+    LACK;
 
     while (true) {
         while (!digitalRead(BUTTON1)) {
@@ -142,6 +151,8 @@ void uncondSetMainState(MainStates state) {
 }
 
 void mainFunc(Display* parentDisplay, Menu* parentMenu) {
+
+    Devices::display.currMenu = &runMenu;
 
     attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
 
@@ -199,6 +210,8 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
     {
         // uint64_t loopStart = millis();
 
+        posToDisplay = mapper.pos;
+
         // ----------------------------------------------------------------------------------------------------
         // update all sensors:
 
@@ -230,9 +243,10 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
             raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
 #if USE_NEW_RASPI_COMMS
             if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
-                if ((millis() - cameraStartTime) >= 10000) {
+                if ((millis() - cameraStartTime) >= 10000 && mapper.hasAllreadySeenVictim(mapper.pos)) {
                     Devices::comms.debugLog(F("Detected victim, switching state!"));
                     DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
+                    mapper.addSeenVictim(mapper.pos);
                     mainStateBeforeCamInt = mainState;
                     uncondSetMainState(MainStates::CAMERA_DETECTION);
                     cameraStartTime = millis();
@@ -748,7 +762,7 @@ bool isRamp() {
 
 uint8_t getTileType() {
     if (isRamp())
-        return RAMP_TILE;
+        return NORMAL_TILE; //! CHANGE THIS BACK THIS IS BULLSHIT
     DB_PRINT_MUL((F("getTileType spec output: "))(colorTypeToName[static_cast<int8_t>(Devices::spec.getColorId())])('\n'));
     switch (Devices::spec.getColorId()) {
     case ColorType::Blue:
@@ -819,5 +833,7 @@ void triggerPackageThrow(RaspiEvent detection) {
 #warning "Not Compiling Main Script!"
 
 void mainFunc(Display* parentDisplay, Menu* parentMenu) {}
+
+String getMappingPos() { return String(""); }
 
 #endif

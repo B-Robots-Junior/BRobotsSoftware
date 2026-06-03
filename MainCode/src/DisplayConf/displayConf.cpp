@@ -4,6 +4,7 @@
 #include <Display/element.h>
 #include <Display/inputHandler.h>
 #include <pins.h>
+#include <RaspiComms/raspiDebug.h>
 
 GEN_ENCODER_INPUT(mainInput, ROTARY_ENCODER_CLK_PIN, ROTARY_ENCODER_DT_PIN, ROTARY_ENCODER_SW_PIN);
 
@@ -18,12 +19,14 @@ GEN_CONST_TEXT(title, 3, 3, "BRobots", 2);
 GEN_SCRIPT_SELECTABLE(start, 4, 25, 1, "Start >", mainFunc, &runMenu);
 GEN_MENU_SELECTABLE(calib, 4, 34, 1, "Calib >", &calibMenu);
 GEN_MENU_SELECTABLE(test, 4, 43, 1, "Test >", &testMenu);
+GEN_MENU_SELECTABLE(raspi, 4, 52, 1, "Raspi >", &raspiMenu)
 
-Menu mainMenu({ &outline, &title }, { &start, &calib, &test}, &mainInput);
+Menu mainMenu({ &outline, &title }, { &start, &calib, &test, &raspi }, &mainInput);
 
 // run menu:
+GEN_SENSOR_READING(pos, 50, 24, "pos", getMappingPos, 1);
 GEN_CONST_TEXT(runningTitle, 3, 3, "Running", 2);
-Menu runMenu({ &outline, &runningTitle, &tofWalls }, {}, &mainInput);
+Menu runMenu({ &outline, &runningTitle, &tofWalls, &pos }, {}, &mainInput);
 
 // calibration menu:
 GEN_SCRIPT_SELECTABLE(calibNormal, 4, 3, 1, "Normal >", calibrateScript<ColorType::Normal>, &calibMenu);
@@ -40,3 +43,31 @@ Menu inCalibrationMenu({ &outline, &calibrating }, {}, &mainInput);
 // test menu:
 GEN_CONST_TEXT(testTitle, 3, 3, "Test", 2);
 Menu testMenu({ &outline, &testTitle, &tofWalls }, { &back }, &mainInput);
+
+// raspi menu:
+GEN_CONST_TEXT(raspiTitle, 3, 3, "Raspi", 2);
+GEN_SCRIPT_SELECTABLE(startRaspiSelec, 4, 25, 1, "Start >", startRaspi, &startingRaspiMenu);
+
+Menu raspiMenu({ &outline, &raspiTitle }, { &startRaspiSelec, &back }, &mainInput);
+
+GEN_CONST_TEXT(startingRaspi, 3, 30, "Starting Raspi!", 1);
+
+Menu startingRaspiMenu({ &outline, &startingRaspi }, {}, &mainInput);
+
+void startRaspi(Display* parentDisplay, Menu* parentMenu) {
+    parentDisplay->currMenu = &startingRaspiMenu;
+    parentDisplay->update();
+
+    RP_PRINT(F("Starting raspi!"));
+
+    Devices::comms.sendStartSignal();
+
+    while (true) {
+        RaspiEvent event = Devices::comms.update(255, 255, 255, 255);
+        if (event == RaspiEvent::RASPI_STARTED)
+            break;
+    }
+
+    parentDisplay->currMenu = &raspiMenu;
+    parentDisplay->update();
+}

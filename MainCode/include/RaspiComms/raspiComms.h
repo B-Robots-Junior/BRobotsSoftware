@@ -22,6 +22,8 @@ enum class PacketType : uint8_t {
     P_VAL               =  9, // sets the P value of the PID regulation (2 bytes float)
     I_VAL               = 10, // sets the I value of the PID regulation (2 bytes float)
     D_VAL               = 11, // sets the D value of the PID regulation (2 bytes float)
+    START_RASPI         = 12, // sends the startup signal to the raspi, no additional data required
+    RASPI_STARTED       = 13, // responce to the startup signal sent by the raspi, no additional data required
 };
 
 class Packet {
@@ -100,8 +102,9 @@ enum class RaspiEvent {
     DETECTED_RED_RIGHT,
     DETECTED_GREEN_LEFT,
     DETECTED_YELLOW_LEFT,
-    DETECTED_RED_LEFT
+    DETECTED_RED_LEFT,
 #endif
+    RASPI_STARTED
 };
 
 enum class CameraState {
@@ -130,6 +133,8 @@ public:
     RaspiComms(const RaspiComms& comms) = delete;
     ~RaspiComms() {}
 
+    void test();
+    void sendStartSignal();
     void debugLog(const __FlashStringHelper* text);
     void debugLog(String str);
     void sendTile(int8_t x, int8_t y, int8_t z, uint8_t data);

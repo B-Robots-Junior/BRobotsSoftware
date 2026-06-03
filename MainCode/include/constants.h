@@ -1,6 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+#define TILE_SIZE 271
+
 #define ROBOT_WIDTH_MM 130
 #define ROBOT_LENGHT_MM 190
 
