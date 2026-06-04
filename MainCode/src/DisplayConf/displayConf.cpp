@@ -26,7 +26,8 @@ Menu mainMenu({ &outline, &title }, { &start, &calib, &test, &raspi }, &mainInpu
 // run menu:
 GEN_SENSOR_READING(pos, 50, 24, "pos", getMappingPos, 1);
 GEN_CONST_TEXT(runningTitle, 3, 3, "Running", 2);
-Menu runMenu({ &outline, &runningTitle, &tofWalls, &pos }, {}, &mainInput);
+GEN_FUNC_TEXT(currVictim, 50, 33, getCurrentVictim, 1);
+Menu runMenu({ &outline, &runningTitle, &tofWalls, &pos, &currVictim }, {}, &mainInput);
 
 // calibration menu:
 GEN_SCRIPT_SELECTABLE(calibNormal, 4, 3, 1, "Normal >", calibrateScript<ColorType::Normal>, &calibMenu);

@@ -56,11 +56,24 @@ bool inBlackTile = false;
 uint32_t bumperStartTime = millis();
 
 mapPos posToDisplay = mapPos(0, 0, 0);
+RaspiEvent victimToDsiplay = RaspiEvent::NONE;
 
 // ----------------------------------------------------------------------------------------------------
 
 String getMappingPos() {
     return String(posToDisplay.x) + "," + posToDisplay.y + "," + posToDisplay.z;
+}
+
+String getCurrentVictim() {
+    switch (victimToDsiplay) {
+    case RaspiEvent::DETECTED_VICTIM_0_LEFT: return F("0L");
+    case RaspiEvent::DETECTED_VICTIM_1_LEFT: return F("1L");
+    case RaspiEvent::DETECTED_VICTIM_2_LEFT: return F("2L");
+    case RaspiEvent::DETECTED_VICTIM_0_RIGHT: return F("0R");
+    case RaspiEvent::DETECTED_VICTIM_1_RIGHT: return F("1R");
+    case RaspiEvent::DETECTED_VICTIM_2_RIGHT: return F("2R");
+    default: return F("NONE");
+    }
 }
 
 int main() {
@@ -160,6 +173,7 @@ void uncondSetMainState(MainStates state) {
 }
 
 void mainFunc(Display* parentDisplay, Menu* parentMenu) {
+    while (Serial1.available()) { Serial1.read(); }
 
     Devices::display.currMenu = &runMenu;
 
@@ -252,10 +266,12 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
             VAR_PRINTLN(static_cast<uint8_t>(raspiEvent));
 #if USE_NEW_RASPI_COMMS
             if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
+                victimToDsiplay = raspiEvent;
                 VAR_PRINTLN(mapper.hasAllreadySeenVictim(mapper.pos));
                 bool right = isRight(raspiEvent);
                 VAR_PRINTLN(right);
-                if ((wallRight() && right || wallLeft() && !right) && !mapper.hasAllreadySeenVictim(mapper.pos)) {
+                if (((bothWallRight() && right) || (bothWallLeft() && !right)) && !mapper.hasAllreadySeenVictim(mapper.pos)
+                    && (millis() - cameraStartTime) >= 6000) {
                     Devices::comms.debugLog(F("Detected victim, switching state!"));
                     DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
                     mapper.addSeenVictim(mapper.pos);
@@ -362,7 +378,7 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
         case MainStates::TURN: {
             LACK;
 
-            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol);
+            int ret = Devices::control.turnRobot(targetTurnAngle, turnStartTime, turnTol, 0.3);
             if (ret == 0) {
                 setMainState(MainStates::START_DRIVE, MainStates::TURN);
             } else if (ret == -1) {
@@ -644,6 +660,7 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
             Devices::motors.setSpeeds(0, 0, 0, 0);
             digitalWrite(MAIN_LED, !(((millis() - cameraStartTime) / 500) % 2)); // blink in 500ms intervals 
             if (millis() - cameraStartTime >= 5000) {
+                victimToDsiplay = RaspiEvent::NONE;
                 setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
                 digitalWrite(MAIN_LED, LOW);
             }
@@ -878,5 +895,7 @@ bool isRight(RaspiEvent detection) {
 void mainFunc(Display* parentDisplay, Menu* parentMenu) {}
 
 String getMappingPos() { return String(""); }
+
+String getCurrentVictim() { return String("OFF"); }
 
 #endif

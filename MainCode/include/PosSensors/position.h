@@ -27,6 +27,15 @@
 
 extern GyroSensor gyro;
 
+extern ShortToF TofLF;
+extern ShortToF TofLB;
+extern ShortToF TofRF;
+extern ShortToF TofRB;
+extern NewLongToF Back;
+extern NewLongToF frontTop;
+extern ShortToF frontBottomL;
+extern NewLongToF frontBottomR;
+
 bool getTofLFValid();
 bool getTofLBValid();
 bool getTofRFValid();
@@ -64,4 +73,6 @@ float getLeftDistance();
 bool wallFront();
 bool wallBack();
 bool wallRight();
+bool bothWallRight();
 bool wallLeft();
+bool bothWallLeft();

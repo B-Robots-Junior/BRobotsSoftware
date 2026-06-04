@@ -17,6 +17,7 @@ extern Menu startingRaspiMenu;
 void mainFunc(Display* parentDisplay, Menu* parentMenu);
 String getMappingPos();
 void startRaspi(Display* parentDisplay, Menu* parentMenu);
+String getCurrentVictim();
 
 template <ColorType c>
 void calibrateScript(Display* parentDisplay, Menu* parentMenu) {

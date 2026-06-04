@@ -28,14 +28,14 @@ NewLongToF frontBottomR(26, 0x38);
 GyroSensor gyro;
 
 // checks without an offset to make sure that they are invalid
-bool getTofLFValid() {return TofLF.read() > 0 && TofLF.read() < 0xFF;}
-bool getTofLBValid() {return TofLB.read() > 0 && TofLB.read() < 0xFF;}
-bool getTofRFValid() {return TofRF.read() > 0 && TofRF.read() < 0xFF;}
-bool getTofRBValid() {return TofRB.read() > 0 && TofRB.read() < 0xFF;}
-bool getTofFBLValid() {return frontBottomL.read() > 0 && frontBottomL.read() < 0xFF;}
-bool getTofBValid() {return Back.read() > 0 && Back.read() < TOF_TIMEOUT_VALUE;}
-bool getTofFTValid() {return frontTop.read() > 0 && frontTop.read() < TOF_TIMEOUT_VALUE;}
-bool getTofFBRValid() {return frontBottomR.read() > 0 && frontBottomR.read() < TOF_TIMEOUT_VALUE;}
+bool getTofLFValid() { return TofLF.read() > 0 && TofLF.read() < 0xFF; }
+bool getTofLBValid() { return TofLB.read() > 0 && TofLB.read() < 0xFF; }
+bool getTofRFValid() { return TofRF.read() > 0 && TofRF.read() < 0xFF; }
+bool getTofRBValid() { return TofRB.read() > 0 && TofRB.read() < 0xFF; }
+bool getTofFBLValid() { return frontBottomL.read() > 0 && frontBottomL.read() < 0xFF; }
+bool getTofBValid() { return Back.ranging_data.range_status == 0; }
+bool getTofFTValid() { return frontTop.ranging_data.range_status == 0; }
+bool getTofFBRValid() { return frontBottomR.ranging_data.range_status == 0; }
 
 #define INIT_TOF(tof) \
     bool tof##Worked = !tof.init_ToF(); \
@@ -258,8 +258,20 @@ bool wallRight() {
     return getRightDistance() <= 150;
 }
 
+bool bothWallRight() {
+    if (!getTofRBValid() || !getTofRFValid())
+        return false;
+    return getRightDistance() <= 150;
+}
+
 bool wallLeft() {
     if (!getTofLBValid() && !getTofLFValid())
+        return false;
+    return getLeftDistance() <= 150;
+}
+
+bool bothWallLeft() {
+    if (!getTofLBValid() || !getTofLFValid())
         return false;
     return getLeftDistance() <= 150;
 }

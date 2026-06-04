@@ -34,10 +34,10 @@ int main() {
     while (true) {
         DB_PRINT_MUL((CURSOR_HOME)
             (F("Data:\n"))
-            (F("    fl: "))(getFrontBottomShortDistance())(' ')(getTofFBLValid())(F(", f: "))(getFrontTopDistance())(' ')(getTofFTValid())(F(", fr: "))(getFrontBottomLongDistance())(' ')(getTofFBRValid())(ENDLINE)
+            (F("    fl: "))(getFrontBottomShortDistance())(' ')(getTofFBLValid())(F(", f: "))(getFrontTopDistance())(' ')(frontTop.ranging_data.range_status)(F(", fr: "))(getFrontBottomLongDistance())(' ')(frontBottomR.ranging_data.range_status)(ENDLINE)
             (F("    lf: "))(getLFDistance())(' ')(getTofLFValid())(F(", rf: "))(getRFDistance())(' ')(getTofRFValid())(ENDLINE)
             (F("    lb: "))(getLBDistance())(' ')(getTofLBValid())(F(", rb: "))(getRBDistance())(' ')(getTofRBValid())(ENDLINE)
-            (F("    b: "))(getBackDistance())(' ')(getTofBValid())(ENDLINE)(ENDLINE)
+            (F("    b: "))(getBackDistance())(' ')(Back.ranging_data.range_status)(ENDLINE)(ENDLINE)
             (F("    front: "))(wallFront())(ENDLINE)
             (F("    left: "))(wallLeft())(F(" right: "))(wallRight())(ENDLINE)
             (F("    back: "))(wallBack())(ENDLINE)(ENDLINE)

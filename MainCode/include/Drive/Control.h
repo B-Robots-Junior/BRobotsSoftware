@@ -43,7 +43,7 @@ public:
 
     void resetPIDs();
 
-    int turnRobot(float targetAngle, uint32_t startTime, float tolerance = 1.0);
+    int turnRobot(float targetAngle, uint32_t startTime, float tolerance = 1.0, float backScale = 0);
 
     void keepCentered(float speedMul);
     void keepHeading(float targetDistance, float speedMul);

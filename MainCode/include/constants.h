@@ -23,18 +23,18 @@
 #define BUMPER_FRONT_TIME_MUL 0.7
 
 // tof adjustment values:
-#define TOF_LF_ADJ -2
-#define TOF_LB_ADJ 6
-#define TOF_RF_ADJ -2
-#define TOF_RB_ADJ 4
+#define TOF_LF_ADJ 12 // -2
+#define TOF_LB_ADJ 11 // 6
+#define TOF_RF_ADJ -5 // -2
+#define TOF_RB_ADJ 3 // 4
 
-#define TOF_FRONT_ADJ 0 
-#define TOF_FRONT_TOP_ADJ -20
+#define TOF_FRONT_ADJ 0 // 0 
+#define TOF_FRONT_TOP_ADJ -12 // -20
 
-#define TOF_FRONT_BOTTOM_R_ADJ -12
-#define TOF_FRONT_BOTTOM_L_ADJ -4 
+#define TOF_FRONT_BOTTOM_R_ADJ -9 // -12
+#define TOF_FRONT_BOTTOM_L_ADJ 10 // -4 
 
-#define TOF_BACK_ADJ -29
+#define TOF_BACK_ADJ -17 // -29
 
 #define RAMP_INCLINE_THRESHOLD 5
 

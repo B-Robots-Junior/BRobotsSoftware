@@ -66,7 +66,7 @@ class NewLongToF : public VL53L4CD {
         int shutdownPin;
         
         NewLongToF();
-        NewLongToF(char _shutdownPin, int _address);  
+        NewLongToF(char _shutdownPin, int _address);
         
         bool init_ToF();
         int read();

@@ -27,7 +27,7 @@ class RescuePackageHandler {
     bool _clearAllMode;
     unsigned long _lastStateChangeMillis;
     static constexpr unsigned long _moveDuration = 500;
-    static constexpr unsigned long _dwellDuration = 600;
+    static constexpr unsigned long _dwellDuration = 800;
 
     enum State {
       IDLE,              // Servo in Standby

@@ -15,7 +15,7 @@ void Control::resetPIDs() {
 
 
 
-int Control::turnRobot(float targetAngle, uint32_t startTime, float tolerance) {
+int Control::turnRobot(float targetAngle, uint32_t startTime, float tolerance, float backScale) {
     if (!_turnActive) {
         _pidTurn.reset();
         _turnActive = true;
@@ -56,7 +56,7 @@ int Control::turnRobot(float targetAngle, uint32_t startTime, float tolerance) {
     int m3Speed = -direction * speed; //
     int m4Speed = -direction * speed; //
 
-    _motors.setSpeeds(m1Speed, m2Speed, m3Speed, m4Speed);
+    _motors.setSpeeds(m1Speed * (1.0 - backScale), m2Speed * (1.0 + backScale), m3Speed * (1.0 - backScale), m4Speed * (1.0 + backScale));
     
     return 1; 
 }
@@ -183,12 +183,19 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
     DB_PRINT_MUL((F("curr: "))((long)currEncoderDist)(F(" last: "))((long)lastEncoderDist)(F(" diff: "))((long)(currEncoderDist - lastEncoderDist))(F(" true: "))((int)trueEncoderDist)(F(" target: "))((long)targetEncoderDist)(" inc: ")(incline)('\n'));
     lastEncoderDist = currEncoderDist;
 
+    if ((!getTofFTValid() || targetFrontDist == -1) && (!getTofBValid() || targetBackDist == -1)) {
+        _driveAlongFailed = true;
+        LACK;
+    }
+
     if (!_driveAlongFailed) {
+        LACK;
         int frontDist = getFrontTopDistance();
         int backDist = getBackDistance();
         
         if (targetBackDist != -1 || targetFrontDist != -1) {
-            if (getFrontTopDistance() < wallStoppingDist && abs(incline) >= 12 && speedMul > 0) {
+            LACK;
+            if (getFrontTopDistance() < wallStoppingDist && getTofFTValid() && abs(incline) >= 12 && speedMul > 0) {
                 _motors.setSpeeds(0, 0, 0, 0);
                 _driveAlongFailed = false; 
                 _frontFailed = false;
@@ -197,8 +204,8 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
                 return 0;
             }
 
-            bool frontValid = frontDist > 0 && frontDist < TOF_TIMEOUT_VALUE && targetFrontDist > 0 && targetFrontDist < TOF_TIMEOUT_VALUE;
-            bool backValid = backDist > 0 && backDist < TOF_TIMEOUT_VALUE && targetBackDist > 0 && targetBackDist < TOF_TIMEOUT_VALUE;
+            bool frontValid = getTofFTValid();
+            bool backValid = getTofBValid();
             bool frontDistFinished = speedMul > 0 ? frontDist <= targetFrontDist : frontDist >= targetFrontDist;
             bool backDistFinished = speedMul > 0 ? backDist >= targetBackDist : backDist <= targetBackDist;
             
@@ -217,6 +224,7 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
                 }
             }
             else if (!_backFailed) { // then use the back dist, because it is a simple +300
+                LACK;
                 if (backDistFinished && abs(incline) < 3.0) {
                     _motors.setSpeeds(0, 0, 0, 0);
                     _driveAlongFailed = false; 
@@ -227,6 +235,7 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
                 }
             } else {
                 _driveAlongFailed = true;
+                LACK;
                 if (targetEncoderDist == -1) {
                     _motors.setSpeeds(0, 0, 0, 0);
                     _driveAlongFailed = false; 
@@ -241,7 +250,7 @@ int Control::driveAlong(int targetBackDist, int targetFrontDist, float targetDis
 
     if (_driveAlongFailed && targetEncoderDist != -1) {
         // if it is extremely obvious that you should stop in front of the next wall just drive with the front tof
-        if (abs(incline) < 12 && getFrontTopDistance() < 200 && speedMul > 0) { // abs(targetEncoderDist - trueEncoderDist) < 200
+        if (abs(incline) < 12 && getFrontTopDistance() < 200 && getTofFTValid() && speedMul > 0) { // abs(targetEncoderDist - trueEncoderDist) < 200
             if (getFrontTopDistance() <= wallStoppingDist) {
                 _motors.setSpeeds(0, 0, 0, 0);
                 _driveAlongFailed = false; 

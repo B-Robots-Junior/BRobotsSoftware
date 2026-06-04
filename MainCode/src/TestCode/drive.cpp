@@ -22,7 +22,7 @@ int main() {
     Devices::init();
 
     Devices::motors.init();
-    Devices::motors.setSpeeds(-100, -100, -100, -100);
+    Devices::motors.setSpeeds(0, 100, 0, 100);
 
     while (true) {
 
