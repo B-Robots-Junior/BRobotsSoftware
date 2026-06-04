@@ -58,11 +58,13 @@ void startRaspi(Display* parentDisplay, Menu* parentMenu) {
     parentDisplay->currMenu = &startingRaspiMenu;
     parentDisplay->update();
 
-    RP_PRINT(F("Starting raspi!"));
+    // RP_PRINT(F("Starting raspi!"));
 
     Devices::comms.sendStartSignal();
 
-    while (true) {
+    uint32_t startTime = millis();
+
+    while ((millis() - startTime) < 10000) {
         RaspiEvent event = Devices::comms.update(255, 255, 255, 255);
         if (event == RaspiEvent::RASPI_STARTED)
             break;

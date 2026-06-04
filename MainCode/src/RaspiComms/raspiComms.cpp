@@ -121,29 +121,29 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         return RaspiEvent::NO_MORE_PACKETS;
     }
 
-    debugLog(F("Recieved Packet from raspi!"));
-
-    debugLog(String(_ser.available()));
+    DB_PRINTLN(F("Recieved Packet from raspi!"));
 
     Packet packet = _recievePacket(10);
 
-    debugLog(String(F("Packet type: ")) + static_cast<uint8_t>(packet.type()));
-    debugLog(String(F("Packet size: ")) + packet.size());
+    DB_PRINT_MUL((F("Packet type: "))(static_cast<uint8_t>(packet.type()))(F(", packet size: "))(packet.size())(F("\n")));
 
     switch (packet.type())
     {
     // --------------------------------------------------
     case PacketType::CAM_RESET: {
+        /*
         DB_COLOR_PRINTLN(F("CAM_RESET recieved!"), SET_GREEN);
         if (_camState != CameraState::LOOKING) {
             _camState = CameraState::LOOKING;
             return RaspiEvent::CAMERA_INVALID;
         }
+        */
         return RaspiEvent::NONE;
     }
 
     // --------------------------------------------------
     case PacketType::CAM_DETECT_SIDE: {
+        /*
         DB_COLOR_PRINTLN(F("CAM_DETECT_SIDE recieved!"), SET_GREEN);
         if (_camState != CameraState::LOOKING) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_DETECT_SIDE out of sequence!"));
@@ -178,11 +178,23 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         _sendPacket(PacketType::CAM_RESET, F("CAM_DETECT_SIDE invalid data!"));
         DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
         _camState = CameraState::LOOKING;
+        */
         return RaspiEvent::NONE;
     }
 
     // --------------------------------------------------
     case PacketType::CAM_VICTIM_VALID: {
+        DB_COLOR_PRINTLN(F("CAM_VICTIM_VALID recieved!"), SET_GREEN);
+        if (packet.size() != 2) {
+            DB_COLOR_PRINTLN(F("INVALID CAM_VICTIM_VALID DATA!"), SET_RED);
+            return RaspiEvent::NONE;
+        }
+        switch (packet[1]) {
+        case 0: return (packet[0] == 0) ? RaspiEvent::DETECTED_VICTIM_0_RIGHT : RaspiEvent::DETECTED_VICTIM_0_LEFT;
+        case 1: return (packet[0] == 0) ? RaspiEvent::DETECTED_VICTIM_1_RIGHT : RaspiEvent::DETECTED_VICTIM_1_LEFT;
+        case 2: return (packet[0] == 0) ? RaspiEvent::DETECTED_VICTIM_2_RIGHT : RaspiEvent::DETECTED_VICTIM_2_LEFT; 
+        }
+        /*
         DB_COLOR_PRINTLN(F("CAM_VICTIM_VALID recieved!"), SET_GREEN);
         if (_camState != CameraState::TRIGGERED_LEFT && _camState != CameraState::TRIGGERED_RIGHT) {
             _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID out of sequence!"));
@@ -216,15 +228,18 @@ RaspiEvent RaspiComms::update(uint8_t fr, uint8_t br, uint8_t fl, uint8_t bl) {
         }
         _sendPacket(PacketType::CAM_RESET, F("CAM_VICTIM_VALID sent invalid data!"));
         DB_COLOR_PRINTLN(F("CAM_RESET sent!"), SET_GREEN);
+        */
         return RaspiEvent::NONE;
     }
 
     // --------------------------------------------------
     case PacketType::CAM_VICTIM_INVALID: {
+        /*
         DB_COLOR_PRINTLN(F("CAM_VICTIM_INVALID recieved!"), SET_GREEN);
         if (_camState == CameraState::LOOKING)
             return RaspiEvent::NONE;
         _camState = CameraState::LOOKING;
+        */
         return RaspiEvent::CAMERA_INVALID;
     }
 

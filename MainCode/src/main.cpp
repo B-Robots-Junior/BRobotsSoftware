@@ -32,6 +32,7 @@ bool getUp();
 bool rampInfront();
 uint16_t getHeapUsage();
 void triggerPackageThrow(RaspiEvent detection);
+bool isRight(RaspiEvent detection);
 
 #define CALIB_LED 30
 #define MAIN_LED 42
@@ -84,10 +85,18 @@ int main() {
     if (!initEverything())
         mainState = MainStates::REINIT;
 
-    Devices::comms.test();
-
     Devices::ledsBottom.fill(0xFF000000);
     Devices::ledsBottom.show();
+
+    /*
+    for (uint8_t i = 0; i < 28; i++) {
+        if (i % 3 == 0)
+            Devices::ledsTop.setPixelColor(i, 0xFF000000);
+        else
+            Devices::ledsTop.setPixelColor(i, 0x00000000);
+    }
+    Devices::ledsTop.show();
+    */
 
     Devices::ledsTop.fill(0x40000000); // (0x40000000);
     Devices::ledsTop.show();
@@ -238,12 +247,15 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
         // ----------------------------------------------------------------------------------------------------
         // update camera:
 
-        RaspiEvent raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
+        RaspiEvent raspiEvent = Devices::comms.update(0, 0, 0, 0);
         while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
-            raspiEvent = Devices::comms.update(getRFDistance(), getRBDistance(), getLFDistance(), getLBDistance());
+            VAR_PRINTLN(static_cast<uint8_t>(raspiEvent));
 #if USE_NEW_RASPI_COMMS
             if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
-                if ((millis() - cameraStartTime) >= 10000 && mapper.hasAllreadySeenVictim(mapper.pos)) {
+                VAR_PRINTLN(mapper.hasAllreadySeenVictim(mapper.pos));
+                bool right = isRight(raspiEvent);
+                VAR_PRINTLN(right);
+                if ((wallRight() && right || wallLeft() && !right) && !mapper.hasAllreadySeenVictim(mapper.pos)) {
                     Devices::comms.debugLog(F("Detected victim, switching state!"));
                     DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
                     mapper.addSeenVictim(mapper.pos);
@@ -265,6 +277,7 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
                 }
             }
 #endif
+            raspiEvent = Devices::comms.update(0, 0, 0, 0);
         }
         
 
@@ -825,6 +838,36 @@ void triggerPackageThrow(RaspiEvent detection) {
     case RaspiEvent::DETECTED_YELLOW_LEFT: Devices::packageHandlerLeft.trigger(1); break;
     case RaspiEvent::DETECTED_RED_LEFT: Devices::packageHandlerLeft.trigger(2); break;
 #endif
+    }
+}
+
+bool isRight(RaspiEvent detection) {
+    switch (detection)
+    {
+    case RaspiEvent::CAMERA_TRIGGERED_RIGTH: return true;
+    case RaspiEvent::CAMERA_TRIGGERED_LEFT: return false;
+#if USE_NEW_RASPI_COMMS
+    case RaspiEvent::DETECTED_VICTIM_0_RIGHT: return true;
+    case RaspiEvent::DETECTED_VICTIM_0_LEFT: return false;
+    case RaspiEvent::DETECTED_VICTIM_1_RIGHT: return true;
+    case RaspiEvent::DETECTED_VICTIM_1_LEFT: return false;
+    case RaspiEvent::DETECTED_VICTIM_2_RIGHT: return true;
+    case RaspiEvent::DETECTED_VICTIM_2_LEFT: return false;
+#else
+    case RaspiEvent::DETECTED_H_RIGHT: return true;
+    case RaspiEvent::DETECTED_S_RIGHT: return true;
+    case RaspiEvent::DETECTED_U_RIGHT: return true;
+    case RaspiEvent::DETECTED_H_LEFT: return false;
+    case RaspiEvent::DETECTED_S_LEFT: return false;
+    case RaspiEvent::DETECTED_U_LEFT: return false;
+    case RaspiEvent::DETECTED_GREEN_RIGHT: return true;
+    case RaspiEvent::DETECTED_YELLOW_RIGHT: return true;
+    case RaspiEvent::DETECTED_RED_RIGHT: return true;
+    case RaspiEvent::DETECTED_GREEN_LEFT: return false;
+    case RaspiEvent::DETECTED_YELLOW_LEFT: return false;
+    case RaspiEvent::DETECTED_RED_LEFT: return false;
+#endif
+    default: return false;
     }
 }
 

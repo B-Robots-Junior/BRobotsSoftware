@@ -1,4 +1,4 @@
-#include <posSensors/gyroSensor.h>
+#include <PosSensors/gyroSensor.h>
 
 // ----------------------------------------------------------------------------------------------------
 // GyroSensor class
