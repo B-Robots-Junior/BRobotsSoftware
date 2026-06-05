@@ -1,5 +1,6 @@
 #include <Mapping/mapping.h>
 #include <utility.h>
+#include <TC/tc.h>
 
 const uint8_t tileWeights[6] = {
     0, // undiscovered tile (should not come up)
@@ -64,7 +65,16 @@ void Move::println() const {
 // actually used methods from outside:
 // --------------------------------------------------
 void Mapper::resetToLastCheckpoint(bool fWall, bool rWall, bool lWall, bool bWall) {
+    mapPos resetTile = pos;
+    if (_gotMove && !_panic)
+        resetTile = _getDriveInDirec(resetTile, wrap(rotation + _currentMove.rotation, 0, 4));
+    if (_panicMove != Move(0, 0) && _panic)
+        resetTile = _getDriveInDirec(resetTile, wrap(rotation + _panicMove.rotation, 0, 4));
+    pos = _lastCheckpointPos;
+    rotation = 0;
     PANIC_RETURN_VOID();
+
+    map.setType(resetTile, BLACK_TILE);
 
     VAR_PRINTLN(_lastCheckpointActionIndex);
 
@@ -130,6 +140,9 @@ void Mapper::resetToLastCheckpoint(bool fWall, bool rWall, bool lWall, bool bWal
 }
 
 Move Mapper::currMove(bool fWall, bool rWall, bool lWall, bool bWall, bool up, uint8_t type) {
+    if (type == CHECKPOINT_TILE)
+        _lastCheckpointPos = pos;
+
     if (_panic) { // when in panic mode switch to an allways go left algorithm
         if (_panicMove.rotation != 0 || _panicMove.distance != 0)
             return _panicMove;
@@ -234,6 +247,7 @@ void Mapper::currMoveBlackTile(bool fWall, bool rWall, bool lWall, bool bWall) {
 
 void Mapper::completeCurrMove() {
     if (_panic) {
+        driveMove(_panicMove);
         _panicMove = Move(0, 0);
         return;
     }
@@ -340,29 +354,29 @@ void Mapper::discover(bool front, bool left, bool right, bool back, bool up, uin
 }
 
 void Mapper::turn(int8_t amount) {
-    PANIC_RETURN_VOID();
-
     rotation = wrap(rotation + amount, 0, 4);
 }
 
 void Mapper::drive(bool forward) {
-    PANIC_RETURN_VOID();
-
     // this checkpoint case is covered here and not in discover, because pos and _actions should only be modified here and discover may be run anywhere
     // this is here incase that the current tile is discovered after driven onto which is not covered by the case below
-    if (map.getType(pos) == CHECKPOINT_TILE && _actions[_actions.size() - 1] == pos) {
-        _lastCheckpointActionIndex = _actions.size() - 1;
-        VAR_PRINTLN(_lastCheckpointActionIndex);
+    if (!_panic) {
+        if (map.getType(pos) == CHECKPOINT_TILE && _actions[_actions.size() - 1] == pos) {
+            _lastCheckpointActionIndex = _actions.size() - 1;
+            VAR_PRINTLN(_lastCheckpointActionIndex);
+        }
     }
 
     pos = _getDriveInDirec(pos, (rotation + !forward * 2) % 4); // if not forward it shoud take the opposite direction
 
     // this checks if where driving onto a checkpoint tile
-    if (map.getType(pos) == CHECKPOINT_TILE) {
-        _lastCheckpointActionIndex = _actions.size();
-        VAR_PRINTLN(_lastCheckpointActionIndex);
+    if (!_panic) {
+        if (map.getType(pos) == CHECKPOINT_TILE) {
+            _lastCheckpointActionIndex = _actions.size();
+            VAR_PRINTLN(_lastCheckpointActionIndex);
+        }
+        _actions.push_back(pos);
     }
-    _actions.push_back(pos);
 
     if (PanikFlags::getInstance().outOfRam())
         panicMode();
@@ -370,23 +384,17 @@ void Mapper::drive(bool forward) {
 
 void Mapper::driveAmount(int8_t amount) {
     for (uint8_t i = 0; i < abs(amount); i++) {
-        PANIC_RETURN_VOID();
         drive(amount >= 0);
     }
 }
 
 void Mapper::driveMove(Move move) {
-    PANIC_RETURN_VOID();
-
     turn(move.rotation);
     driveAmount((int8_t)move.distance);
 }
 
 void Mapper::driveMoves(const SimpleArray<Move>& moves) {
-    PANIC_RETURN_VOID();
-
     for (uint16_t i = 0; i < moves.size(); i++) {
-        PANIC_RETURN_VOID();
         driveMove(moves[i]);
     }
 }

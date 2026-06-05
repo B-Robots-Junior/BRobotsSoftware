@@ -26,6 +26,9 @@ public:
 
     void print() const;
     void println() const;
+
+    bool operator==(const Move& other) { return rotation == other.rotation && distance == other.distance; }
+    bool operator!=(const Move& other) { return rotation != other.rotation || distance != other.distance; }
 };
 
 class Mapper {
@@ -44,6 +47,7 @@ public: //! temporary for testing !SET THIS TO PRIVATE!
     Move _panicMove = Move(0, 0);
 
     uint16_t _lastCheckpointActionIndex = 0; // action index of the last checkpoint driven over
+    mapPos _lastCheckpointPos = mapPos(0, 0, 0);
 
     class NeighbourIterator {
     public:

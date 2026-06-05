@@ -19,7 +19,7 @@ void saveToEEPROM(int index, T value) {
 // syntax veToEEPROM<[variable type]>([index])
 template <typename T>
 T readFromEEPROM(int index) {
-    T value = 0;
+    T value;
     for (size_t i = 0; i < sizeof(T); i++)
         ((uint8_t*)&value)[i] = EEPROM.read(index + i);
     return value;

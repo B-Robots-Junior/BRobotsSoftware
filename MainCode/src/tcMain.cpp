@@ -11,12 +11,13 @@
 #include <util/atomic.h>
 #include <PinChangeInterrupt.h>
 #include <DisplayConf/displayConf.h>
+#include <TC/tc.h>
 
 #include <config.h>
 
-#define USE_main true
+#define USE_tc true
 #if CAT(USE_, CURR_MAIN)
-#undef USE_main
+#undef USE_tc
 
 void setMainState(MainStates state, MainStates currentCase);
 void mainFunc(Display* parentDisplay, Menu* parentMenu);
@@ -175,6 +176,8 @@ void uncondSetMainState(MainStates state) {
 void mainFunc(Display* parentDisplay, Menu* parentMenu) {
     while (Serial1.available()) { Serial1.read(); }
 
+    resetTC();
+
     Devices::display.currMenu = &runMenu;
 
     attachPCINT(digitalPinToPCINT(BUTTON1), resetInterrupt, FALLING); // atach reset button
@@ -267,19 +270,14 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
             VAR_PRINTLN(static_cast<uint8_t>(raspiEvent));
 #if USE_NEW_RASPI_COMMS
             if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
-                victimToDsiplay = raspiEvent;
-                VAR_PRINTLN(mapper.hasAllreadySeenVictim(mapper.pos));
                 bool right = isRight(raspiEvent);
-                VAR_PRINTLN(right);
-                if (((bothWallRight() && right) || (bothWallLeft() && !right)) && !mapper.hasAllreadySeenVictim(mapper.pos)
-                    && (millis() - cameraStartTime) >= 6000) {
+                if ((bothWallRight() && right) || (bothWallLeft() && !right)) {
                     Devices::comms.debugLog(F("Detected victim, switching state!"));
                     DB_COLOR_PRINTLN(F("Detected Victim, switching state!"), SET_GREEN);
-                    mapper.addSeenVictim(mapper.pos);
+                    victimToDsiplay = raspiEvent;
                     mainStateBeforeCamInt = mainState;
                     uncondSetMainState(MainStates::CAMERA_DETECTION);
                     cameraStartTime = millis();
-                    triggerPackageThrow(raspiEvent);
                 }
             }
 #else
@@ -333,8 +331,26 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
                 (F("    b: "))(getBackDistance())('\n')
             );
 
+            TileCon tcData(0, 0, 0, 0, 0, getTileType(), mapper.rotation, getUp());
+            if (tcData.type != RAMP_TILE) {
+                tcData[mapper.rotation] = wallFront();
+                tcData[(mapper.rotation + 1) % 4] = wallRight();
+                tcData[(mapper.rotation + 2) % 4] = wallBack();
+                tcData[(mapper.rotation + 3) % 4] = wallLeft();
+            }
+
+            addElement(tc_element_t {
+                .x = mapper.pos.x,
+                .y = mapper.pos.y,
+                .type = TC_TILE,
+                .data = (uint8_t)tcData,
+            });
+
             DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
-            currMove = mapper.currMove(wallFront(), wallRight(), wallLeft(), wallBack(), getUp(), getTileType());
+            uint8_t tileType = getTileType();
+            if (tileType == RAMP_TILE)
+                tileType = NORMAL_TILE;
+            currMove = mapper.currMove(wallFront(), wallRight(), wallLeft(), wallBack(), getUp(), tileType);
             DB_PRINT_MUL((F("StackPtr: "))((uint16_t)SP)(F(" HeapPtr: "))(getHeapUsage())(F(" Mapper Mem: "))((long)mapper.currentDynamicRamUsage())(F(" actions Data size: "))(mapper._actions.dataSize())('\n'));
             VAR_FUNC_PRINTLN(currMove);
 
@@ -541,6 +557,16 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
         case MainStates::BLACK_IR: {
             LACK;
             Devices::motors.setSpeeds(0, 0, 0, 0);
+
+            mapPos detectionPos = mapper._getDriveInDirec(mapper.pos, wrap(mapper.rotation + currMove.rotation, 0, 4));
+            TileCon tcData(0, 0, 0, 0, 0, BLACK_TILE, 0, 0);
+            addElement(tc_element_t {
+                .x = detectionPos.x,
+                .y = detectionPos.y,
+                .type = TC_TILE,
+                .data = (uint8_t)tcData,
+            });
+
             // I don't think walls matter for black tiles
             mapper.currMoveBlackTile(false, false, false, false);
 
@@ -658,13 +684,30 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
         // ----------------------------------------------------------------------------------------------------
         // case that is entered if the camera detects something:
         case MainStates::CAMERA_DETECTION: {
-            Devices::motors.setSpeeds(0, 0, 0, 0);
-            digitalWrite(MAIN_LED, !(((millis() - cameraStartTime) / 500) % 2)); // blink in 500ms intervals 
-            if (millis() - cameraStartTime >= 5000) {
-                victimToDsiplay = RaspiEvent::NONE;
-                setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
-                digitalWrite(MAIN_LED, LOW);
+            mapPos detectionPos = mapper.pos;
+            if (mainStateBeforeCamInt == MainStates::DRIVE)
+                detectionPos = mapper._getDriveInDirec(detectionPos, wrap(mapper.rotation + currMove.rotation, 0, 4));
+
+            uint16_t data = 0xFFFF;
+            switch (victimToDsiplay)
+            {
+            case RaspiEvent::DETECTED_VICTIM_0_LEFT: ((uint8_t*)&data)[0] = 0; ((uint8_t*)&data)[1] = (mapper.rotation + 3) % 4; break;
+            case RaspiEvent::DETECTED_VICTIM_0_RIGHT: ((uint8_t*)&data)[0] = 0; ((uint8_t*)&data)[1] = (mapper.rotation + 1) % 4; break;
+            case RaspiEvent::DETECTED_VICTIM_1_LEFT: ((uint8_t*)&data)[0] = 1; ((uint8_t*)&data)[1] = (mapper.rotation + 3) % 4; break;
+            case RaspiEvent::DETECTED_VICTIM_1_RIGHT: ((uint8_t*)&data)[0] = 1; ((uint8_t*)&data)[1] = (mapper.rotation + 1) % 4; break;
+            case RaspiEvent::DETECTED_VICTIM_2_LEFT: ((uint8_t*)&data)[0] = 2; ((uint8_t*)&data)[1] = (mapper.rotation + 3) % 4; break;
+            case RaspiEvent::DETECTED_VICTIM_2_RIGHT: ((uint8_t*)&data)[0] = 2; ((uint8_t*)&data)[1] = (mapper.rotation + 1) % 4; break;
             }
+
+            addElement(tc_element_t {
+                .x = detectionPos.x,
+                .y = detectionPos.y,
+                .type = TC_VICTIM,
+                .data = data,
+            });
+
+            victimToDsiplay = RaspiEvent::NONE;
+            setMainState(mainStateBeforeCamInt, MainStates::CAMERA_DETECTION);
             break;
         }
 
@@ -793,7 +836,7 @@ bool isRamp() {
 
 uint8_t getTileType() {
     if (isRamp())
-        return NORMAL_TILE; //! CHANGE THIS BACK THIS IS BULLSHIT
+        return RAMP_TILE; //! CHANGE THIS BACK THIS IS BULLSHIT
     DB_PRINT_MUL((F("getTileType spec output: "))(colorTypeToName[static_cast<int8_t>(Devices::spec.getColorId())])('\n'));
     switch (Devices::spec.getColorId()) {
     case ColorType::Blue:
@@ -888,23 +931,5 @@ bool isRight(RaspiEvent detection) {
     default: return false;
     }
 }
-
-#else
-
-#warning "Not Compiling Main Script!"
-
-#define USE_tc true
-#if !CAT(USE_, CURR_MAIN)
-#undef USE_tc
-
-void rgbcSensorOnEnter() {}
-void rgbcSensorOnExit() {}
-void mainFunc(Display*, Menu*) {}
-
-String getMappingPos() { return String(""); }
-
-String getCurrentVictim() { return String("OFF"); }
-
-#endif
 
 #endif
