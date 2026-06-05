@@ -262,7 +262,8 @@ void mainFunc(Display* parentDisplay, Menu* parentMenu) {
         // update camera:
 
         RaspiEvent raspiEvent = Devices::comms.update(0, 0, 0, 0);
-        while (raspiEvent != RaspiEvent::NO_MORE_PACKETS) {
+        uint32_t raspiLoopStartTime = millis();
+        while (raspiEvent != RaspiEvent::NO_MORE_PACKETS && (millis() - raspiLoopStartTime) <= 5) {
             VAR_PRINTLN(static_cast<uint8_t>(raspiEvent));
 #if USE_NEW_RASPI_COMMS
             if (raspiEvent >= RaspiEvent::DETECTED_VICTIM_0_RIGHT && raspiEvent <= RaspiEvent::DETECTED_VICTIM_2_LEFT) {
